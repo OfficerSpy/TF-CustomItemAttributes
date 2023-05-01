@@ -1,0 +1,35 @@
+"Games"
+{
+	"tf"
+	{
+		"Signatures"
+		{
+			"CTraceFilterObject::ShouldHitEntity"
+			{
+				"linux"		"@_ZN18CTraceFilterObject15ShouldHitEntityEP13IHandleEntityi"
+				"windows"	"\x55\x8B\xEC\x51\x8B\xC1\x8B\x0D"
+			}
+		}
+		"Functions"
+		{
+			"CTraceFilterObject::ShouldHitEntity"
+			{
+				"signature"		"CTraceFilterObject::ShouldHitEntity"
+				"callconv"		"thiscall"
+				"return"		"bool"
+				"this"			"address"
+				"arguments"
+				{
+					"target"
+					{
+						"type"	"cbaseentity"
+					}
+					"contents_mask"
+					{
+						"type"	"int"
+					}
+				}
+			}
+		}
+	}
+}
