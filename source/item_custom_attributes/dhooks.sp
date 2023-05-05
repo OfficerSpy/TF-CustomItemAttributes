@@ -11,6 +11,8 @@ enum struct DetourData
 static ArrayList g_DynamicDetours;
 static ArrayList g_DynamicHookIds;
 
+static DynamicHook g_DHookWeaponSound;
+
 void DHooks_Initialize()
 {	
 	g_DynamicDetours = new ArrayList(sizeof(DetourData));
@@ -20,6 +22,8 @@ void DHooks_Initialize()
 	if (gamedata)
 	{
 		DHooks_AddDynamicDetour(gamedata, "CTraceFilterObject::ShouldHitEntity", DHookCallback_ShouldHitEntity_Pre);
+		
+		g_DHookWeaponSound = DHooks_AddDynamicHook(gamedata, "CBaseCombatWeapon::WeaponSound");
 				
 		delete gamedata;
 	}
@@ -29,7 +33,7 @@ void DHooks_Initialize()
 	}
 }
 
-/* static DynamicHook DHooks_AddDynamicHook(GameData gamedata, const char[] name)
+static DynamicHook DHooks_AddDynamicHook(GameData gamedata, const char[] name)
 {
 	DynamicHook hook = DynamicHook.FromConf(gamedata, name);
 	if (!hook)
@@ -50,7 +54,7 @@ static void DHooks_HookEntity(DynamicHook hook, HookMode mode, int entity, DHook
 			g_DynamicHookIds.Push(hookid);
 		}
 	}
-} */
+}
 
 public void DHookRemovalCB_OnHookRemoved(int hookid)
 {
@@ -123,6 +127,12 @@ void DHooks_Toggle(bool enable)
 	}
 }
 
+void DHooks_OnEntityCreated(int entity, const char[] classname)
+{
+	if (StrContains(classname, "tf_weapon") != -1)
+		DHooks_HookEntity(g_DHookWeaponSound, Hook_Pre, entity, DHookCallback_WeaponSound_Pre);
+}
+
 static MRESReturn DHookCallback_ShouldHitEntity_Pre(Address pThis, DHookReturn hReturn, DHookParam hParams)
 {
 	int entity = DHookGetParam(hParams, 1);
@@ -158,6 +168,35 @@ static MRESReturn DHookCallback_ShouldHitEntity_Pre(Address pThis, DHookReturn h
 					return MRES_Supercede;
 				}
 			}
+		}
+	}
+	
+	return MRES_Ignored;
+}
+
+static MRESReturn DHookCallback_WeaponSound_Pre(int pThis, DHookParam hParams)
+{
+	int index = hParams.Get(1);
+	
+	if (index == SINGLE || index == BURST || index == MELEE_MISS || index == MELEE_HIT || index == MELEE_HIT_WORLD || index == RELOAD || index == SPECIAL1 || index == SPECIAL3)
+	{
+		char sound[256];
+		switch(index)
+		{
+			case SINGLE, BURST, MELEE_MISS, SPECIAL1, SPECIAL3:	TF2Attrib_HookValueString("", "custom_weapon_fire_sound", pThis, sound, sizeof(sound));
+			case MELEE_HIT, MELEE_HIT_WORLD:	TF2Attrib_HookValueString("", "custom_impact_sound", pThis, sound, sizeof(sound));
+			case RELOAD:	TF2Attrib_HookValueString("", "custom_weapon_reload_sound", pThis, sound, sizeof(sound));
+		}
+		
+		if (strlen(sound) > 0)
+		{
+			int owner = TF2_GetEntityOwner(pThis);
+			float soundtime = hParams.Get(2);
+			
+			PrecacheSound(sound);
+			EmitSoundToAll(sound, owner, _, _, _, _, _, _, _, _, _, soundtime);
+			
+			return MRES_Supercede;
 		}
 	}
 	

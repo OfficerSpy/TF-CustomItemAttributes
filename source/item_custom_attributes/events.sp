@@ -9,13 +9,12 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 	
 	if (IsValidClientIndex(attacker))
 	{
-		char strIcon[256];
-		TF2Attrib_HookValueString("", "custom_kill_icon", attacker, strIcon, sizeof(strIcon));
+		char iconName[256];	TF2Attrib_HookValueString("", "custom_kill_icon", attacker, iconName, sizeof(iconName));
 		
 		//Change kill icon for everyone
-		if (strlen(strIcon) > 0)
+		if (strlen(iconName) > 0)
 		{
-			event.SetString("weapon", strIcon);
+			event.SetString("weapon", iconName);
 			return Plugin_Changed;
 		}
 	}

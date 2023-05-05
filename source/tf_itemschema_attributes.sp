@@ -5,6 +5,27 @@
 #pragma semicolon 1
 #pragma newdecls required
 
+enum //WeaponSound_t
+{
+	EMPTY,
+	SINGLE,
+	SINGLE_NPC,
+	WPN_DOUBLE,
+	DOUBLE_NPC,
+	BURST,
+	RELOAD,
+	RELOAD_NPC,
+	MELEE_MISS,
+	MELEE_HIT,
+	MELEE_HIT_WORLD,
+	SPECIAL1,
+	SPECIAL2,
+	SPECIAL3,
+	TAUNT,
+	DEPLOY,
+	NUM_SHOOT_SOUND_TYPES,
+};
+
 #include "item_custom_attributes/dhooks.sp"
 #include "item_custom_attributes/events.sp"
 
@@ -13,7 +34,7 @@ public Plugin myinfo =
 	name = "[TF2] Custom Item Schema Attributes",
 	author = "Officer Spy",
 	description = "Checks for extra attributes that were injected by another mod.",
-	version = "1.0.0",
+	version = "1.0.1",
 	url = ""
 };
 
@@ -29,6 +50,11 @@ public void OnPluginStart()
 public void OnConfigsExecuted()
 {
 	DHooks_Toggle(true);
+}
+
+public void OnEntityCreated(int entity, const char[] classname)
+{
+	DHooks_OnEntityCreated(entity, classname);
 }
 
 stock bool IsValidClientIndex(int client)
@@ -77,4 +103,9 @@ stock int GetEntityFromAddress(Address pEntity) {
 //From stocksoup/memory.inc
 stock int LoadEntityHandleFromAddress(Address addr) {
 	return EntRefToEntIndex(LoadFromAddress(addr, NumberType_Int32) | (1 << 31));
+}
+
+//From stocksoup/tf/entity_prop_stocks.inc
+stock int TF2_GetEntityOwner(int entity) {
+	return GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity");
 }

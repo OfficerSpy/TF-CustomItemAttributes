@@ -10,6 +10,14 @@
 				"windows"	"\x55\x8B\xEC\x51\x8B\xC1\x8B\x0D"
 			}
 		}
+		"Offsets"
+		{
+			"CBaseCombatWeapon::WeaponSound"
+			{
+				"windows"	"302"
+				"linux"		"308"
+			}
+		}
 		"Functions"
 		{
 			"CTraceFilterObject::ShouldHitEntity"
@@ -27,6 +35,24 @@
 					"contents_mask"
 					{
 						"type"	"int"
+					}
+				}
+			}
+			"CBaseCombatWeapon::WeaponSound"
+			{
+				"offset"	"CBaseCombatWeapon::WeaponSound"
+				"hooktype"	"entity"
+				"return"	"void"
+				"this"		"entity"
+				"arguments"
+				{
+					"sound_type"
+					{
+						"type"	"int"
+					}
+					"soundtime"
+					{
+						"type"	"float"
 					}
 				}
 			}
