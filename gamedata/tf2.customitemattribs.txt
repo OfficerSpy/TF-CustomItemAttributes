@@ -9,6 +9,16 @@
 				"linux"		"@_ZN18CTraceFilterObject15ShouldHitEntityEP13IHandleEntityi"
 				"windows"	"\x55\x8B\xEC\x51\x8B\xC1\x8B\x0D"
 			}
+			"CTFPlayerShared::StunPlayer"
+			{
+				"windows"	"\x55\x8B\xEC\x83\xEC\x20\x57\x8B\xF9\x8B\x87\x54\x04\x00\x00"
+				"linux"		"@_ZN15CTFPlayerShared10StunPlayerEffiP9CTFPlayer"
+			}
+			"CBaseObject::FindSnapToBuildPos"
+			{
+				"linux"		"@_ZN11CBaseObject18FindSnapToBuildPosEPS_"
+				"windows"	"\x55\x8B\xEC\x83\xEC\x38\x57\x8B\xF9\xE8\x2A\x2A\x2A\x2A\x84\xC0"
+			}
 		}
 		"Offsets"
 		{
@@ -35,6 +45,46 @@
 					"contents_mask"
 					{
 						"type"	"int"
+					}
+				}
+			}
+			"CTFPlayerShared::StunPlayer"
+			{
+				"signature"		"CTFPlayerShared::StunPlayer"
+				"callconv"		"thiscall"
+				"return"		"void"
+				"this"			"address"
+				"arguments"
+				{
+					"flTime"
+					{
+						"type" "float"
+					}
+					"flReductionAmount"
+					{
+						"type" "float"
+					}
+					"iStunFlags"
+					{
+						"type" "int"
+					}
+					"pAttacker"
+					{
+						"type" "cbaseentity"
+					}
+				}
+			}
+			"CBaseObject::FindSnapToBuildPos"
+			{
+				"signature"	"CBaseObject::FindSnapToBuildPos"
+				"callconv"	"thiscall"
+				"return"	"bool"
+				"this"		"entity"
+				"arguments"
+				{
+					"pObjectOverride"
+					{
+						"type"	"cbaseentity"
 					}
 				}
 			}

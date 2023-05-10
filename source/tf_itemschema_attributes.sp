@@ -1,6 +1,7 @@
 #include <sourcemod>
 #include <dhooks>
 #include <tf2attributes>
+#include <tf2utils>
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -26,6 +27,8 @@ enum //WeaponSound_t
 	NUM_SHOOT_SOUND_TYPES,
 };
 
+ConVar sv_stepsize;
+
 #include "item_custom_attributes/dhooks.sp"
 #include "item_custom_attributes/events.sp"
 
@@ -34,14 +37,13 @@ public Plugin myinfo =
 	name = "[TF2] Custom Item Schema Attributes",
 	author = "Officer Spy",
 	description = "Checks for extra attributes that were injected by another mod.",
-	version = "1.0.1",
+	version = "1.0.2",
 	url = ""
 };
 
 public void OnPluginStart()
 {
-	if (FindPluginByFile("tf2hiddenattribs.smx") == INVALID_HANDLE)
-		LogError("Plugin tf2hiddenattribs.smx could not be located! Plugin may not work!");
+	sv_stepsize = FindConVar("sv_stepsize");
 	
 	HookGameEvents();
 	DHooks_Initialize();
@@ -55,6 +57,15 @@ public void OnConfigsExecuted()
 public void OnEntityCreated(int entity, const char[] classname)
 {
 	DHooks_OnEntityCreated(entity, classname);
+}
+
+public Action OnPlayerRunCmd(int client, int& buttons, int& impulse, float vel[3], float angles[3], int& weapon, int& subtype, int& cmdnum, int& tickcount, int& seed, int mouse[2])
+{
+	//Simulating here as if this was CTFPlayer::TFPlayerThink
+	float stepMult = TF2Attrib_HookValueFloat(1.0, "mult_step_height", client);
+	
+	if (stepMult != 1.0)
+		SetEntPropFloat(client, Prop_Send, "m_flStepSize", stepMult * sv_stepsize.FloatValue);
 }
 
 stock bool IsValidClientIndex(int client)

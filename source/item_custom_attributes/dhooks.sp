@@ -22,6 +22,8 @@ void DHooks_Initialize()
 	if (gamedata)
 	{
 		DHooks_AddDynamicDetour(gamedata, "CTraceFilterObject::ShouldHitEntity", DHookCallback_ShouldHitEntity_Pre);
+		DHooks_AddDynamicDetour(gamedata, "CTFPlayerShared::StunPlayer", DHookCallback_StunPlayer_Pre);
+		DHooks_AddDynamicDetour(gamedata, "CBaseObject::FindSnapToBuildPos", DHookCallback_FindSnapToBuildPos_Pre, DHookCallback_FindSnapToBuildPos_Post);
 		
 		g_DHookWeaponSound = DHooks_AddDynamicHook(gamedata, "CBaseCombatWeapon::WeaponSound");
 				
@@ -168,6 +170,59 @@ static MRESReturn DHookCallback_ShouldHitEntity_Pre(Address pThis, DHookReturn h
 					return MRES_Supercede;
 				}
 			}
+		}
+	}
+	
+	return MRES_Ignored;
+}
+
+static MRESReturn DHookCallback_StunPlayer_Pre(Address pThis, DHookParam hParams)
+{
+	int player = TF2Util_GetPlayerFromSharedAddress(pThis);
+	float stun = TF2Attrib_HookValueFloat(1.0, "mult_stun_resistance", player);
+	
+	if (stun != 1.0)
+	{
+		float slowdown = hParams.Get(2);
+		
+		slowdown *= stun;
+		hParams.Set(2, slowdown);
+		
+		return MRES_ChangedHandled;
+	}
+	
+	return MRES_Ignored;
+}
+
+//This is a dumb way of doing this but I cannot be bothered to find
+//the signature for CBaseObject::FindBuildPointOnPlayer right now
+static MRESReturn DHookCallback_FindSnapToBuildPos_Pre(int pThis, DHookReturn hReturn, DHookParam hParams)
+{
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (IsClientInGame(i))
+		{
+			int noSap = TF2Attrib_HookValueInt(0, "cannot_be_sapped", i);
+			
+			//Make this bot unsappable
+			if (noSap > 0)
+				TF2_AddCondition(i, TFCond_Sapped);
+		}
+	}
+	
+	return MRES_Ignored;
+}
+
+static MRESReturn DHookCallback_FindSnapToBuildPos_Post(int pThis, DHookReturn hReturn, DHookParam hParams)
+{
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (IsClientInGame(i))
+		{
+			int noSap = TF2Attrib_HookValueInt(0, "cannot_be_sapped", i);
+			
+			if (noSap > 0)
+				TF2_RemoveCondition(i, TFCond_Sapped);
 		}
 	}
 	
