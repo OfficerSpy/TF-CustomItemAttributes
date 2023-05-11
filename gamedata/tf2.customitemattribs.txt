@@ -19,6 +19,11 @@
 				"linux"		"@_ZN11CBaseObject18FindSnapToBuildPosEPS_"
 				"windows"	"\x55\x8B\xEC\x83\xEC\x38\x57\x8B\xF9\xE8\x2A\x2A\x2A\x2A\x84\xC0"
 			}
+			"DispatchParticleEffect3" //Overload 3
+			{
+				"windows"	"\x55\x8B\xEC\x81\xEC\xAC\x00\x00\x00\x56\x8B\x75\x10"
+				"linux"		"@_Z22DispatchParticleEffectPKc20ParticleAttachment_tP11CBaseEntityS0_6VectorS4_bb"
+			}
 		}
 		"Offsets"
 		{
@@ -26,6 +31,16 @@
 			{
 				"windows"	"302"
 				"linux"		"308"
+			}
+			"CBaseEntity::IsDeflectable"
+			{
+				"windows"	"158"
+				"linux"		"159"
+			}
+			"CTFWeaponBase::GetParticleColor" //UNUSED
+			{
+				"windows"	"447"
+				"linux"		"454"
 			}
 		}
 		"Functions"
@@ -105,6 +120,13 @@
 						"type"	"float"
 					}
 				}
+			}
+			"CBaseEntity::IsDeflectable"
+			{
+				"offset"	"CBaseEntity::IsDeflectable"
+				"hooktype"	"entity"
+				"return"	"bool"
+				"this"		"entity"
 			}
 		}
 	}

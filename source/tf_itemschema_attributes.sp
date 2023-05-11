@@ -1,5 +1,6 @@
 #include <sourcemod>
 #include <dhooks>
+#include <sdkhooks>
 #include <tf2attributes>
 #include <tf2utils>
 
@@ -27,10 +28,23 @@ enum //WeaponSound_t
 	NUM_SHOOT_SOUND_TYPES,
 };
 
+enum ParticleAttachment_t
+{
+	PATTACH_ABSORIGIN = 0,
+	PATTACH_ABSORIGIN_FOLLOW,
+	PATTACH_CUSTOMORIGIN,
+	PATTACH_POINT,
+	PATTACH_POINT_FOLLOW,
+	PATTACH_WORLDORIGIN,
+	PATTACH_ROOTBONE_FOLLOW
+};
+
 ConVar sv_stepsize;
 
 #include "item_custom_attributes/dhooks.sp"
 #include "item_custom_attributes/events.sp"
+#include "item_custom_attributes/sdkhooks.sp"
+#include "item_custom_attributes/sdkcalls.sp"
 
 public Plugin myinfo = 
 {
@@ -46,6 +60,7 @@ public void OnPluginStart()
 	sv_stepsize = FindConVar("sv_stepsize");
 	
 	HookGameEvents();
+	SetupSDKCalls();
 	DHooks_Initialize();
 }
 
@@ -56,6 +71,9 @@ public void OnConfigsExecuted()
 
 public void OnEntityCreated(int entity, const char[] classname)
 {
+	if (StrContains(classname, "tf_projectile") != -1)
+		SDKHook(entity, SDKHook_SpawnPost, ProjectileSpawnPost);
+	
 	DHooks_OnEntityCreated(entity, classname);
 }
 
@@ -66,6 +84,27 @@ public Action OnPlayerRunCmd(int client, int& buttons, int& impulse, float vel[3
 	
 	if (stepMult != 1.0)
 		SetEntPropFloat(client, Prop_Send, "m_flStepSize", stepMult * sv_stepsize.FloatValue);
+	
+	return Plugin_Continue;
+}
+
+public void TF2_OnConditionAdded(int client, TFCond condition)
+{
+	switch(condition)
+	{
+		case TFCond_ParachuteDeployed:
+		{
+			int parachuteRedeploy = TF2Attrib_HookValueInt(0, "parachute_redeploy", client);
+			
+			if (parachuteRedeploy != 0)
+				TF2_RemoveCondition(client, condition);
+		}
+	}
+}
+
+public void OnClientPutInServer(int client)
+{
+	SDKHook(client, SDKHook_OnTakeDamage, PlayerOnTakeDamage);
 }
 
 stock bool IsValidClientIndex(int client)
@@ -119,4 +158,17 @@ stock int LoadEntityHandleFromAddress(Address addr) {
 //From stocksoup/tf/entity_prop_stocks.inc
 stock int TF2_GetEntityOwner(int entity) {
 	return GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity");
+}
+
+stock bool IsMiniBoss(int client)
+{	
+	return view_as<bool>(GetEntProp(client, Prop_Send, "m_bIsMiniBoss"));
+}
+
+stock void VScriptSetSize(int entity, float mins[3], float maxs[3])
+{
+	char buffer[256]; Format(buffer, sizeof(buffer), "!self.SetSize(Vector(%.2f, %.2f, %.2f), Vector(%.2f, %.2f, %.2f))", mins[0], mins[1], mins[2], maxs[0], maxs[1], maxs[2]);
+	
+	SetVariantString(buffer);
+	AcceptEntityInput(entity, "RunScriptCode");
 }

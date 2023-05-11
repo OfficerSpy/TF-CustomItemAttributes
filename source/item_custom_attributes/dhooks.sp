@@ -12,6 +12,7 @@ static ArrayList g_DynamicDetours;
 static ArrayList g_DynamicHookIds;
 
 static DynamicHook g_DHookWeaponSound;
+static DynamicHook g_DHookIsDeflectable;
 
 void DHooks_Initialize()
 {	
@@ -26,6 +27,7 @@ void DHooks_Initialize()
 		DHooks_AddDynamicDetour(gamedata, "CBaseObject::FindSnapToBuildPos", DHookCallback_FindSnapToBuildPos_Pre, DHookCallback_FindSnapToBuildPos_Post);
 		
 		g_DHookWeaponSound = DHooks_AddDynamicHook(gamedata, "CBaseCombatWeapon::WeaponSound");
+		g_DHookIsDeflectable = DHooks_AddDynamicHook(gamedata, "CBaseEntity::IsDeflectable");
 				
 		delete gamedata;
 	}
@@ -133,6 +135,9 @@ void DHooks_OnEntityCreated(int entity, const char[] classname)
 {
 	if (StrContains(classname, "tf_weapon") != -1)
 		DHooks_HookEntity(g_DHookWeaponSound, Hook_Pre, entity, DHookCallback_WeaponSound_Pre);
+	
+	if (StrContains(classname, "tf_projectile") != -1)
+		DHooks_HookEntity(g_DHookIsDeflectable, Hook_Pre, entity, DHookCallback_IsDeflectable_Pre);
 }
 
 static MRESReturn DHookCallback_ShouldHitEntity_Pre(Address pThis, DHookReturn hReturn, DHookParam hParams)
@@ -253,6 +258,24 @@ static MRESReturn DHookCallback_WeaponSound_Pre(int pThis, DHookParam hParams)
 			
 			return MRES_Supercede;
 		}
+	}
+	
+	return MRES_Ignored;
+}
+
+static MRESReturn DHookCallback_IsDeflectable_Pre(int pThis, DHookReturn hReturn)
+{
+	int weapon = GetEntPropEnt(pThis, Prop_Send, "m_hOriginalLauncher");
+	
+	if (weapon == -1)
+		return MRES_Ignored;
+	
+	int cannotDeflect = TF2Attrib_HookValueInt(0, "projectile_no_deflect", weapon);
+	
+	if (cannotDeflect != 0)
+	{
+		hReturn.Value = false;
+		return MRES_Supercede;
 	}
 	
 	return MRES_Ignored;
