@@ -1,17 +1,16 @@
 void HookGameEvents()
 {
-	HookEvent("player_death", Event_PlayerDeath, EventHookMode_Pre);
+	HookEvent("player_death", Event_PlayerDeath_Change, EventHookMode_Pre);
 }
 
-public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
+public Action Event_PlayerDeath_Change(Event event, const char[] name, bool dontBroadcast)
 {
 	int attacker = GetClientOfUserId(event.GetInt("attacker"));
 	
 	if (IsValidClientIndex(attacker))
 	{
-		char iconName[256];	TF2Attrib_HookValueString("", "custom_kill_icon", attacker, iconName, sizeof(iconName));
-		
 		//Change kill icon for everyone
+		char iconName[128];	TF2Attrib_HookValueString("", "custom_kill_icon", attacker, iconName, sizeof(iconName));
 		if (strlen(iconName) > 0)
 		{
 			event.SetString("weapon", iconName);

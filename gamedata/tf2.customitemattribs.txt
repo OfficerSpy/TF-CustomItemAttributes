@@ -24,6 +24,16 @@
 				"windows"	"\x55\x8B\xEC\x81\xEC\xAC\x00\x00\x00\x56\x8B\x75\x10"
 				"linux"		"@_Z22DispatchParticleEffectPKc20ParticleAttachment_tP11CBaseEntityS0_6VectorS4_bb"
 			}
+			"CTFDroppedWeapon::Create"
+			{
+				"linux"		"@_ZN16CTFDroppedWeapon6CreateEP9CTFPlayerRK6VectorRK6QAnglePKcPK13CEconItemView"
+				"windows"	"\x55\x8B\xEC\x51\xA1\x2A\x2A\x2A\x2A\x80\xB8\x2A\x2A\x2A\x2A\x00\x74\x2A\x33\xC0\x8B\xE5\x5D\xC3"
+			}
+			"CTFDroppedWeapon::InitDroppedWeapon"
+			{
+				"linux"		"@_ZN16CTFDroppedWeapon17InitDroppedWeaponEP9CTFPlayerP13CTFWeaponBasebb"
+				"windows"	"\x55\x8B\xEC\x83\xEC\x24\x56\x57\x8B\xF9\x8B\x4D\x08"
+			}
 		}
 		"Offsets"
 		{
@@ -36,6 +46,11 @@
 			{
 				"windows"	"158"
 				"linux"		"159"
+			}
+			"CTFPlayer::Event_Killed"
+			{
+				"linux"		"69"
+				"windows"	"68"
 			}
 			"CTFWeaponBase::GetParticleColor" //UNUSED
 			{
@@ -127,6 +142,20 @@
 				"hooktype"	"entity"
 				"return"	"bool"
 				"this"		"entity"
+			}
+			"CTFPlayer::Event_Killed"
+			{
+				"offset"	"CTFPlayer::Event_Killed"
+				"hooktype"	"entity"
+				"return"	"void"
+				"this"		"entity"
+				"arguments"
+				{
+					"info"
+					{
+						"type"	"int"
+					}
+				}
 			}
 		}
 	}

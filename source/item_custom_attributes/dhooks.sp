@@ -13,6 +13,7 @@ static ArrayList g_DynamicHookIds;
 
 static DynamicHook g_DHookWeaponSound;
 static DynamicHook g_DHookIsDeflectable;
+static DynamicHook g_DHookEvent_Killed;
 
 void DHooks_Initialize()
 {	
@@ -28,6 +29,7 @@ void DHooks_Initialize()
 		
 		g_DHookWeaponSound = DHooks_AddDynamicHook(gamedata, "CBaseCombatWeapon::WeaponSound");
 		g_DHookIsDeflectable = DHooks_AddDynamicHook(gamedata, "CBaseEntity::IsDeflectable");
+		g_DHookEvent_Killed = DHooks_AddDynamicHook(gamedata, "CTFPlayer::Event_Killed");
 				
 		delete gamedata;
 	}
@@ -140,6 +142,11 @@ void DHooks_OnEntityCreated(int entity, const char[] classname)
 		DHooks_HookEntity(g_DHookIsDeflectable, Hook_Pre, entity, DHookCallback_IsDeflectable_Pre);
 }
 
+void DHooks_OnClientPutInServer(int client)
+{
+	DHooks_HookEntity(g_DHookEvent_Killed, Hook_Pre, client, DHookCallback_EventKilled_Pre);
+}
+
 static MRESReturn DHookCallback_ShouldHitEntity_Pre(Address pThis, DHookReturn hReturn, DHookParam hParams)
 {
 	int entity = DHookGetParam(hParams, 1);
@@ -240,7 +247,7 @@ static MRESReturn DHookCallback_WeaponSound_Pre(int pThis, DHookParam hParams)
 	
 	if (index == SINGLE || index == BURST || index == MELEE_MISS || index == MELEE_HIT || index == MELEE_HIT_WORLD || index == RELOAD || index == SPECIAL1 || index == SPECIAL3)
 	{
-		char sound[256];
+		char sound[128];
 		switch(index)
 		{
 			case SINGLE, BURST, MELEE_MISS, SPECIAL1, SPECIAL3:	TF2Attrib_HookValueString("", "custom_weapon_fire_sound", pThis, sound, sizeof(sound));
@@ -276,6 +283,31 @@ static MRESReturn DHookCallback_IsDeflectable_Pre(int pThis, DHookReturn hReturn
 	{
 		hReturn.Value = false;
 		return MRES_Supercede;
+	}
+	
+	return MRES_Ignored;
+}
+
+static MRESReturn DHookCallback_EventKilled_Pre(int pThis, DHookParam hParams)
+{
+	//TODO: get data from CTakeDamageInfo
+	for (int w = 0; w <= TFWeaponSlot_Melee; w++)
+	{
+		int weapon = GetPlayerWeaponSlot(pThis, w);
+		
+		if (weapon != -1 && weapon != TF2_GetClientActiveWeapon(pThis))
+		{
+			int droppedWeapon = TF2Attrib_HookValueInt(0, "is_dropped_weapon",  weapon);
+			
+			if (droppedWeapon != 0)
+			{
+				float angles[3]; GetClientAbsAngles(pThis, angles);
+				int dropped = CreateDroppedWeapon(pThis, GetEyePosition(pThis), angles, GetWorldModel(weapon), GetEconItemView(weapon));
+				
+				if (IsValidEntity(dropped))
+					InitDroppedWeapon(dropped, pThis, weapon, false, false);
+			}
+		}
 	}
 	
 	return MRES_Ignored;

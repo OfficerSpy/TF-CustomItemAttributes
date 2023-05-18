@@ -51,7 +51,7 @@ public Plugin myinfo =
 	name = "[TF2] Custom Item Schema Attributes",
 	author = "Officer Spy",
 	description = "Checks for extra attributes that were injected by another mod.",
-	version = "1.0.2",
+	version = "1.0.3",
 	url = ""
 };
 
@@ -105,6 +105,42 @@ public void TF2_OnConditionAdded(int client, TFCond condition)
 public void OnClientPutInServer(int client)
 {
 	SDKHook(client, SDKHook_OnTakeDamage, PlayerOnTakeDamage);
+	
+	DHooks_OnClientPutInServer(client);
+}
+
+void SetCustomProjectileModel(int weapon, int proj)
+{
+	char classname[128]; GetEntityClassname(proj, classname, sizeof(classname));
+	
+	//Ignore grenades, game already does this for them
+	if (StrContains(classname, "tf_projectile_pipe") == -1)
+	{
+		//Not a custom attribute, but an enhancement
+		char modelName[128]; TF2Attrib_HookValueString("", "custom_projectile_model", weapon, modelName, sizeof(modelName));
+		if (strlen(modelName) > 0)
+			SetEntityModel(proj, modelName);
+	}
+	
+	float modelScale = TF2Attrib_HookValueFloat(1.0, "mult_projectile_scale", weapon);
+	if (modelScale != 1.0)
+		SetEntPropFloat(proj, Prop_Send, "m_flModelScale", modelScale);
+	
+	float collScale = TF2Attrib_HookValueFloat(0.0, "custom_projectile_size", weapon);
+	if (collScale != 0.0)
+	{
+		float min[3], max[3];
+		
+		min[0] -= collScale;
+		min[1] -= collScale;
+		min[2] -= collScale;
+		
+		max[0] += collScale;
+		max[1] += collScale;
+		max[2] += collScale;
+		
+		VScriptSetSize(proj, min, max);
+	}
 }
 
 stock bool IsValidClientIndex(int client)
@@ -163,6 +199,57 @@ stock int TF2_GetEntityOwner(int entity) {
 stock bool IsMiniBoss(int client)
 {	
 	return view_as<bool>(GetEntProp(client, Prop_Send, "m_bIsMiniBoss"));
+}
+
+stock Address GetEconItemView(int item)
+{
+	char netclass[32];
+	if (GetEntityNetClass(item, netclass, sizeof(netclass)))
+	{
+		int offset = FindSendPropInfo(netclass, "m_Item");
+		
+		if (offset < 0)
+			ThrowError("Failed to find m_Item on: %s", netclass);
+		
+		return GetEntityAddress(item) + view_as<Address>(offset);
+	}
+	
+	return Address_Null;
+}
+
+stock float[] GetEyePosition(int client)
+{		
+	float v[3];
+	GetClientEyePosition(client, v);
+	return v;
+}
+
+//From stocksoup/entity_prop_stocks.inc
+stock int GetEntityModelPath(int entity, char[] buffer, int maxlen) {
+	return GetEntPropString(entity, Prop_Data, "m_ModelName", buffer, maxlen);
+}
+
+stock bool IsMannVsMachineMode()
+{
+	return view_as<bool>(GameRules_GetProp("m_bPlayingMannVsMachine"));
+}
+
+//From stocksoup/tf/entity_prop_stocks.inc
+stock int TF2_GetClientActiveWeapon(int client) {
+	return GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
+}
+
+stock char[] GetWorldModel(int entity)
+{
+	int index = GetEntProp(entity, Prop_Send, "m_iWorldModelIndex");
+	char model[128]; ModelIndexToString(index, model, sizeof(model));
+	return model;
+}
+
+stock void ModelIndexToString(int index, char[] model, int size)
+{
+	int table = FindStringTable("modelprecache");
+	ReadStringTable(table, index, model, size);
 }
 
 stock void VScriptSetSize(int entity, float mins[3], float maxs[3])

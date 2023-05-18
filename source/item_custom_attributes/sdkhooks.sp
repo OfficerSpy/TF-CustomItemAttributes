@@ -4,8 +4,9 @@ public void ProjectileSpawnPost(int entity)
 		
 	if (weapon != -1 && TF2Util_IsEntityWeapon(weapon))
 	{
-		char particleName[256]; TF2Attrib_HookValueString("", "projectile_trail_particle", weapon, particleName, sizeof(particleName));
+		SetCustomProjectileModel(weapon, entity);
 		
+		char particleName[128]; TF2Attrib_HookValueString("", "projectile_trail_particle", weapon, particleName, sizeof(particleName));
 		if (strlen(particleName) > 0)
 		{
 			float color0[3], color1[3];
@@ -23,23 +24,6 @@ public void ProjectileSpawnPost(int entity)
 			}
 			else
 				DispatchParticleEffect3(particleName, PATTACH_ABSORIGIN_FOLLOW, entity, "trail", color0, color1, true, false);
-		}
-		
-		float collScale = TF2Attrib_HookValueFloat(0.0, "custom_projectile_size", weapon);
-		
-		if (collScale != 0.0)
-		{
-			float min[3], max[3];
-			
-			min[0] -= collScale;
-			min[1] -= collScale;
-			min[2] -= collScale;
-			
-			max[0] += collScale;
-			max[1] += collScale;
-			max[2] += collScale;
-			
-			VScriptSetSize(entity, min, max);
 		}
 	}
 }
@@ -60,7 +44,6 @@ public Action PlayerOnTakeDamage(int victim, int& attacker, int& inflictor, floa
 			if (dmgMult != 1.0)
 			{
 				damage *= dmgMult;
-				PrintToChatAll("DAMAGE: %f", damage);
 				return Plugin_Changed;
 			}
 		}
