@@ -2,6 +2,7 @@ Handle g_hDispatchParticleEffect3;
 Handle g_hDroppedWeaponCreate;
 Handle g_hInitDroppedWeapon;
 // Handle g_hSDKGetParticleColor;
+Handle g_hFireProjectile;
 
 void SetupSDKCalls()
 {
@@ -45,6 +46,12 @@ void SetupSDKCalls()
 	PrepSDKCall_SetReturnInfo(SDKType_Vector, SDKPass_ByRef);
 	if ((g_hSDKGetParticleColor = EndPrepSDKCall()) == null) { LogError("Failed to create SDKCall for CTFWeaponBase::GetParticleColor!"); sigFailure = true; } */
 	
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CTFWeaponBaseGun::FireProjectile");
+	PrepSDKCall_AddParameter(SDKType_CBasePlayer, SDKPass_Pointer);
+	PrepSDKCall_SetReturnInfo(SDKType_CBaseEntity, SDKPass_Pointer);
+	if ((g_hFireProjectile = EndPrepSDKCall()) == null) { LogError("Failed to create SDKCall for CTFWeaponBaseGun::FireProjectile!"); sigFailure = true; }
+	
 	if (sigFailure)
 		SetFailState("One or more signatures failed!");
 }
@@ -82,3 +89,8 @@ void InitDroppedWeapon(int droppedWeapon, int player, int weapon, bool swap, boo
 	SDKCall(g_hSDKGetParticleColor, weapon, vec, color);
 	return vec;
 } */
+
+int TFWeaponFireProjectile(int weapon, int player)
+{
+	return SDKCall(g_hFireProjectile, weapon, player);
+}

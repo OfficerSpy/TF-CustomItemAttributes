@@ -14,6 +14,7 @@ static ArrayList g_DynamicHookIds;
 static DynamicHook g_DHookWeaponSound;
 static DynamicHook g_DHookIsDeflectable;
 static DynamicHook g_DHookEvent_Killed;
+static DynamicHook g_DHookFireProjectile;
 
 void DHooks_Initialize()
 {	
@@ -30,6 +31,7 @@ void DHooks_Initialize()
 		g_DHookWeaponSound = DHooks_AddDynamicHook(gamedata, "CBaseCombatWeapon::WeaponSound");
 		g_DHookIsDeflectable = DHooks_AddDynamicHook(gamedata, "CBaseEntity::IsDeflectable");
 		g_DHookEvent_Killed = DHooks_AddDynamicHook(gamedata, "CTFPlayer::Event_Killed");
+		g_DHookFireProjectile = DHooks_AddDynamicHook(gamedata, "CTFWeaponBaseGun::FireProjectile");
 				
 		delete gamedata;
 	}
@@ -136,7 +138,10 @@ void DHooks_Toggle(bool enable)
 void DHooks_OnEntityCreated(int entity, const char[] classname)
 {
 	if (StrContains(classname, "tf_weapon") != -1)
+	{
+		SDKHook(entity, SDKHook_SpawnPost, DHooksWeaponSpawnPost);
 		DHooks_HookEntity(g_DHookWeaponSound, Hook_Pre, entity, DHookCallback_WeaponSound_Pre);
+	}
 	
 	if (StrContains(classname, "tf_projectile") != -1)
 		DHooks_HookEntity(g_DHookIsDeflectable, Hook_Pre, entity, DHookCallback_IsDeflectable_Pre);
@@ -145,6 +150,12 @@ void DHooks_OnEntityCreated(int entity, const char[] classname)
 void DHooks_OnClientPutInServer(int client)
 {
 	DHooks_HookEntity(g_DHookEvent_Killed, Hook_Pre, client, DHookCallback_EventKilled_Pre);
+}
+
+public void DHooksWeaponSpawnPost(int entity)
+{
+	if (IsWeaponBaseGun(entity))
+		DHooks_HookEntity(g_DHookFireProjectile, Hook_Post, entity, DHookCallback_FireProjectile_Post);
 }
 
 static MRESReturn DHookCallback_ShouldHitEntity_Pre(Address pThis, DHookReturn hReturn, DHookParam hParams)
@@ -160,7 +171,11 @@ static MRESReturn DHookCallback_ShouldHitEntity_Pre(Address pThis, DHookReturn h
 	{
 		bool entityhit_player = IsValidClientIndex(entity);
 		
+#if defined JOINBLU_BUSTER_ROBOT
+		if (entityhit_player || (IsBaseObject(entity) && !IsSentryBusterRobot(passEntity)))
+#else
 		if (entityhit_player || IsBaseObject(entity))
+#endif
 		{
 			int not_solid = TF2Attrib_HookValueInt(0, "not_solid_to_players", passEntity);
 			
@@ -309,6 +324,36 @@ static MRESReturn DHookCallback_EventKilled_Pre(int pThis, DHookParam hParams)
 			}
 		}
 	}
+	
+	return MRES_Ignored;
+}
+
+static MRESReturn DHookCallback_FireProjectile_Post(int pThis, DHookReturn hReturn, DHookParam hParams)
+{
+	static bool bSkip;
+	
+	//Prevent a recursive detour
+	if (bSkip)
+		return MRES_Ignored;
+	
+	int proj = hReturn.Value;
+	int player = hParams.Get(1);
+	int attr_projectile_count = TF2Attrib_HookValueInt(1, "mult_projectile_count", pThis);
+	
+	if (proj > 0)
+		SetCustomProjectileModel(pThis, proj);
+	
+	bSkip = true;
+	for (int i = 1; i < attr_projectile_count; i++) //Start from 1 since we still let the original pass
+	{
+		int newProj = TFWeaponFireProjectile(pThis, player);
+		CustomlyModifyLaunchedProjectile(pThis, newProj, false);
+	}
+	bSkip = false;
+	
+	//Modify the original
+	if (proj > 0)
+		CustomlyModifyLaunchedProjectile(pThis, proj, true);
 	
 	return MRES_Ignored;
 }

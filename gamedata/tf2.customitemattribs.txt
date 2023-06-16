@@ -52,6 +52,11 @@
 				"linux"		"69"
 				"windows"	"68"
 			}
+			"CTFWeaponBaseGun::FireProjectile"
+			{
+				"linux"		"477"
+				"windows"	"470"
+			}
 			"CTFWeaponBase::GetParticleColor" //UNUSED
 			{
 				"windows"	"447"
@@ -154,6 +159,20 @@
 					"info"
 					{
 						"type"	"int"
+					}
+				}
+			}
+			"CTFWeaponBaseGun::FireProjectile"
+			{
+				"offset"	"CTFWeaponBaseGun::FireProjectile"
+				"hooktype"	"entity"
+				"return"	"cbaseentity"
+				"this"		"entity"
+				"arguments"
+				{
+					"pPlayer"
+					{
+						"type"	"cbaseentity"
 					}
 				}
 			}

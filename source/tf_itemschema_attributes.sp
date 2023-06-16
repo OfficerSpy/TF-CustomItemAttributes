@@ -7,6 +7,9 @@
 #pragma semicolon 1
 #pragma newdecls required
 
+#define ATTRIBUTE_ENHANCEMENTS
+// #define JOINBLU_BUSTER_ROBOT
+
 enum //WeaponSound_t
 {
 	EMPTY,
@@ -51,7 +54,7 @@ public Plugin myinfo =
 	name = "[TF2] Custom Item Schema Attributes",
 	author = "Officer Spy",
 	description = "Checks for extra attributes that were injected by another mod.",
-	version = "1.0.3",
+	version = "1.0.4",
 	url = ""
 };
 
@@ -70,10 +73,7 @@ public void OnConfigsExecuted()
 }
 
 public void OnEntityCreated(int entity, const char[] classname)
-{
-	if (StrContains(classname, "tf_projectile") != -1)
-		SDKHook(entity, SDKHook_SpawnPost, ProjectileSpawnPost);
-	
+{	
 	DHooks_OnEntityCreated(entity, classname);
 }
 
@@ -111,6 +111,7 @@ public void OnClientPutInServer(int client)
 
 void SetCustomProjectileModel(int weapon, int proj)
 {
+#if defined ATTRIBUTE_ENHANCEMENTS
 	char classname[128]; GetEntityClassname(proj, classname, sizeof(classname));
 	
 	//Ignore grenades, game already does this for them
@@ -121,6 +122,7 @@ void SetCustomProjectileModel(int weapon, int proj)
 		if (strlen(modelName) > 0)
 			SetEntityModel(proj, modelName);
 	}
+#endif
 	
 	float modelScale = TF2Attrib_HookValueFloat(1.0, "mult_projectile_scale", weapon);
 	if (modelScale != 1.0)
@@ -141,6 +143,35 @@ void SetCustomProjectileModel(int weapon, int proj)
 		
 		VScriptSetSize(proj, min, max);
 	}
+}
+
+bool IsWeaponBaseGun(int entity)
+{
+	return HasEntProp(entity, Prop_Data, "CTFWeaponBaseGunZoomOutIn");
+}
+
+void CustomlyModifyLaunchedProjectile(int weapon, int projectile, bool isNativeSpawned)
+{
+	char particleName[128]; TF2Attrib_HookValueString("", "projectile_trail_particle", weapon, particleName, sizeof(particleName));
+	if (strlen(particleName) > 0)
+	{
+		float color0[3], color1[3];
+		
+		// color0 = GetWeaponParticleColor(weapon, 1);
+		// color1 = GetWeaponParticleColor(weapon, 2);
+		
+		//FIXME: this works in RequestFrame but not here?
+		//I'm not sure how that makes sense since overload 1 works in SpawnPost
+		//Also the original particle is removed even with reset set to false
+		if (StrContains(particleName, "~") != -1)
+		{
+			ReplaceString(particleName, sizeof(particleName), "~", "");
+			DispatchParticleEffect3(particleName, PATTACH_ABSORIGIN_FOLLOW, projectile, "trail", color0, color1, true, true);
+		}
+		else
+			DispatchParticleEffect3(particleName, PATTACH_ABSORIGIN_FOLLOW, projectile, "trail", color0, color1, true, false);
+	}
+	//TODO: ModifyProjectile
 }
 
 stock bool IsValidClientIndex(int client)
@@ -250,6 +281,13 @@ stock void ModelIndexToString(int index, char[] model, int size)
 {
 	int table = FindStringTable("modelprecache");
 	ReadStringTable(table, index, model, size);
+}
+
+stock bool IsSentryBusterRobot(int client)
+{
+	char model[PLATFORM_MAX_PATH];
+	GetClientModel(client, model, PLATFORM_MAX_PATH);
+	return StrEqual(model, "models/bots/demo/bot_sentry_buster.mdl");
 }
 
 stock void VScriptSetSize(int entity, float mins[3], float maxs[3])
