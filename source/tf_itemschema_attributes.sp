@@ -54,7 +54,7 @@ public Plugin myinfo =
 	name = "[TF2] Custom Item Schema Attributes",
 	author = "Officer Spy",
 	description = "Checks for extra attributes that were injected by another mod.",
-	version = "1.0.4",
+	version = "1.0.5",
 	url = ""
 };
 

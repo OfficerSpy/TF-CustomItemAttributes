@@ -276,7 +276,7 @@ static MRESReturn DHookCallback_WeaponSound_Pre(int pThis, DHookParam hParams)
 			float soundtime = hParams.Get(2);
 			
 			PrecacheSound(sound);
-			EmitSoundToAll(sound, owner, _, _, _, _, _, _, _, _, _, soundtime);
+			EmitSoundToAll(sound, _, _, _, _, _, _, _, _, _, _, soundtime);
 			
 			return MRES_Supercede;
 		}
