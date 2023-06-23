@@ -54,7 +54,7 @@ public Plugin myinfo =
 	name = "[TF2] Custom Item Schema Attributes",
 	author = "Officer Spy",
 	description = "Checks for extra attributes that were injected by another mod.",
-	version = "1.0.5",
+	version = "1.0.6",
 	url = ""
 };
 
@@ -171,7 +171,25 @@ void CustomlyModifyLaunchedProjectile(int weapon, int projectile, bool isNativeS
 		else
 			DispatchParticleEffect3(particleName, PATTACH_ABSORIGIN_FOLLOW, projectile, "trail", color0, color1, true, false);
 	}
-	//TODO: ModifyProjectile
+	//TODO: ModifyProjectile but ignore native spawned
+	
+	char soundName[128];	TF2Attrib_HookValueString("", "projectile_sound", weapon, soundName, sizeof(soundName));
+	if (strlen(soundName) > 0)
+	{
+		PrecacheSound(soundName);
+		EmitSoundToAll(soundName);
+	}
+}
+
+//TODO: maybe implement CTakeDamageInfo into here at some point?
+void ApplyOnHitAttributes(int weapon, int victim, int attacker, float damage)
+{
+	char str[128];	TF2Attrib_HookValueString("", "custom_hit_sound", weapon, str, sizeof(str));
+	if (strlen(str) > 0)
+	{
+		PrecacheSound(str);
+		EmitSoundToAll(str, victim);
+	}
 }
 
 stock bool IsValidClientIndex(int client)

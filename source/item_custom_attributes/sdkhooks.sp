@@ -16,8 +16,12 @@ public Action PlayerOnTakeDamage(int victim, int& attacker, int& inflictor, floa
 				damage *= dmgMult;
 				return Plugin_Changed;
 			}
+			
+			ApplyOnHitAttributes(weapon, victim, attacker, damage);
 		}
 	}
 	
 	return Plugin_Continue;
 }
+
+//TODO: ApplyOnHitAttributes in base object take damage
