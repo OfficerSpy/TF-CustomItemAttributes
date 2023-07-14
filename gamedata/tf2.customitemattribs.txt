@@ -52,15 +52,40 @@
 				"linux"		"69"
 				"windows"	"68"
 			}
+			"CTFWeaponBase::GetParticleColor" //UNUSED
+			{
+				"windows"	"447"
+				"linux"		"454"
+			}
 			"CTFWeaponBaseGun::FireProjectile"
 			{
 				"linux"		"477"
 				"windows"	"470"
 			}
-			"CTFWeaponBase::GetParticleColor" //UNUSED
+			"CBaseEntity::WorldSpaceCenter"
 			{
-				"windows"	"447"
-				"linux"		"454"
+				"windows"	"155"
+				"linux"		"156"
+			}
+			"CTFWeaponBaseGun::GetWeaponProjectileType"
+			{
+				"windows"	"469"
+				"linux"		"476"
+			}
+			"CTFWeaponBaseGun::GetProjectileSpeed"
+			{		
+				"windows"	"481"		
+				"linux"		"488"
+			}
+			"CBaseEntity::PerformCustomPhysics"
+			{
+				"windows"	"175"
+				"linux"		"176"
+			}
+			"CBaseEntity::VPhysicsDestroyObject"
+			{
+				"windows"	"162"
+				"linux"		"163"
 			}
 		}
 		"Functions"
@@ -173,6 +198,32 @@
 					"pPlayer"
 					{
 						"type"	"cbaseentity"
+					}
+				}
+			}
+			"CBaseEntity::PerformCustomPhysics"
+			{
+				"offset"	"CBaseEntity::PerformCustomPhysics"
+				"hooktype"	"entity"
+				"return"	"void"
+				"this"		"entity"
+				"arguments"
+				{
+					"pNewPosition"
+					{
+						"type"	"vectorptr"
+					}
+					"pNewVelocity"
+					{
+						"type"	"vectorptr"
+					}
+					"pNewAngles"
+					{
+						"type"	"vectorptr"
+					}
+					"pNewAngVelocity"
+					{
+						"type"	"vectorptr"
 					}
 				}
 			}

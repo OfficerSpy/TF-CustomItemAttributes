@@ -15,25 +15,27 @@ static DynamicHook g_DHookWeaponSound;
 static DynamicHook g_DHookIsDeflectable;
 static DynamicHook g_DHookEvent_Killed;
 static DynamicHook g_DHookFireProjectile;
+static DynamicHook g_DHookPerformCustomPhysics;
 
 void DHooks_Initialize()
 {	
 	g_DynamicDetours = new ArrayList(sizeof(DetourData));
 	g_DynamicHookIds = new ArrayList();
 	
-	GameData gamedata = new GameData("tf2.customitemattribs");
-	if (gamedata)
+	GameData hGamedata = new GameData("tf2.customitemattribs");
+	if (hGamedata)
 	{
-		DHooks_AddDynamicDetour(gamedata, "CTraceFilterObject::ShouldHitEntity", DHookCallback_ShouldHitEntity_Pre);
-		DHooks_AddDynamicDetour(gamedata, "CTFPlayerShared::StunPlayer", DHookCallback_StunPlayer_Pre);
-		DHooks_AddDynamicDetour(gamedata, "CBaseObject::FindSnapToBuildPos", DHookCallback_FindSnapToBuildPos_Pre, DHookCallback_FindSnapToBuildPos_Post);
+		DHooks_AddDynamicDetour(hGamedata, "CTraceFilterObject::ShouldHitEntity", DHookCallback_ShouldHitEntity_Pre);
+		DHooks_AddDynamicDetour(hGamedata, "CTFPlayerShared::StunPlayer", DHookCallback_StunPlayer_Pre);
+		DHooks_AddDynamicDetour(hGamedata, "CBaseObject::FindSnapToBuildPos", DHookCallback_FindSnapToBuildPos_Pre, DHookCallback_FindSnapToBuildPos_Post);
 		
-		g_DHookWeaponSound = DHooks_AddDynamicHook(gamedata, "CBaseCombatWeapon::WeaponSound");
-		g_DHookIsDeflectable = DHooks_AddDynamicHook(gamedata, "CBaseEntity::IsDeflectable");
-		g_DHookEvent_Killed = DHooks_AddDynamicHook(gamedata, "CTFPlayer::Event_Killed");
-		g_DHookFireProjectile = DHooks_AddDynamicHook(gamedata, "CTFWeaponBaseGun::FireProjectile");
+		g_DHookWeaponSound = DHooks_AddDynamicHook(hGamedata, "CBaseCombatWeapon::WeaponSound");
+		g_DHookIsDeflectable = DHooks_AddDynamicHook(hGamedata, "CBaseEntity::IsDeflectable");
+		g_DHookEvent_Killed = DHooks_AddDynamicHook(hGamedata, "CTFPlayer::Event_Killed");
+		g_DHookFireProjectile = DHooks_AddDynamicHook(hGamedata, "CTFWeaponBaseGun::FireProjectile");
+		g_DHookPerformCustomPhysics = DHooks_AddDynamicHook(hGamedata, "CBaseEntity::PerformCustomPhysics");
 				
-		delete gamedata;
+		delete hGamedata;
 	}
 	else
 	{
@@ -144,7 +146,10 @@ void DHooks_OnEntityCreated(int entity, const char[] classname)
 	}
 	
 	if (StrContains(classname, "tf_projectile") != -1)
+	{
 		DHooks_HookEntity(g_DHookIsDeflectable, Hook_Pre, entity, DHookCallback_IsDeflectable_Pre);
+		DHooks_HookEntity(g_DHookPerformCustomPhysics, Hook_Pre, entity, DHookCallback_PerformCustomPhysics_Pre);
+	}
 }
 
 void DHooks_OnClientPutInServer(int client)
@@ -272,7 +277,7 @@ static MRESReturn DHookCallback_WeaponSound_Pre(int pThis, DHookParam hParams)
 		
 		if (strlen(sound) > 0)
 		{
-			int owner = TF2_GetEntityOwner(pThis);
+			// int owner = TF2_GetEntityOwner(pThis);
 			float soundtime = hParams.Get(2);
 			
 			PrecacheSound(sound);
@@ -346,7 +351,7 @@ static MRESReturn DHookCallback_FireProjectile_Post(int pThis, DHookReturn hRetu
 	bSkip = true;
 	for (int i = 1; i < attr_projectile_count; i++) //Start from 1 since we still let the original pass
 	{
-		int newProj = TFWeaponFireProjectile(pThis, player);
+		int newProj = TFWG_FireProjectile(pThis, player);
 		CustomlyModifyLaunchedProjectile(pThis, newProj, false);
 	}
 	bSkip = false;
@@ -354,6 +359,33 @@ static MRESReturn DHookCallback_FireProjectile_Post(int pThis, DHookReturn hRetu
 	//Modify the original
 	if (proj > 0)
 		CustomlyModifyLaunchedProjectile(pThis, proj, true);
+	
+	return MRES_Ignored;
+}
+
+static MRESReturn DHookCallback_PerformCustomPhysics_Pre(int pThis, DHookParam hParams)
+{
+	float newPosition[3], newVelocity[3], newAngles[3], newAngVelocity[3];
+	
+	// hParams.GetVector(1, newPosition);
+	// hParams.GetVector(2, newVelocity);
+	// hParams.GetVector(3, newAngles);
+	// hParams.GetVector(4, newAngVelocity);
+	
+	if (PerformCustomPhysics(pThis, newPosition, newVelocity, newAngles, newAngVelocity))
+	{
+		hParams.SetVector(1, newPosition);
+		hParams.SetVector(2, newVelocity);
+		hParams.SetVector(3, newAngles);
+		hParams.SetVector(4, newAngVelocity);
+		
+		PrintToChatAll("newPosition %.2f %.2f %.2f", newPosition[0], newPosition[1], newPosition[2]);
+		PrintToChatAll("newVelocity %.2f %.2f %.2f", newVelocity[0], newVelocity[1], newVelocity[2]);
+		PrintToChatAll("newAngles %.2f %.2f %.2f", newAngles[0], newAngles[1], newAngles[2]);
+		PrintToChatAll("newAngVelocity %.2f %.2f %.2f", newAngVelocity[0], newAngVelocity[1], newAngVelocity[2]);
+		
+		return MRES_ChangedHandled;
+	}
 	
 	return MRES_Ignored;
 }

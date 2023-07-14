@@ -3,6 +3,10 @@ Handle g_hDroppedWeaponCreate;
 Handle g_hInitDroppedWeapon;
 // Handle g_hSDKGetParticleColor;
 Handle g_hFireProjectile;
+Handle g_hWorldSpaceCenter;
+Handle g_hGetWeaponProjectileType;
+Handle g_hGetProjectileSpeed;
+Handle g_hVPhysicsDestroyObject;
 
 void SetupSDKCalls()
 {
@@ -52,6 +56,25 @@ void SetupSDKCalls()
 	PrepSDKCall_SetReturnInfo(SDKType_CBaseEntity, SDKPass_Pointer);
 	if ((g_hFireProjectile = EndPrepSDKCall()) == null) { LogError("Failed to create SDKCall for CTFWeaponBaseGun::FireProjectile!"); sigFailure = true; }
 	
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CBaseEntity::WorldSpaceCenter");
+	PrepSDKCall_SetReturnInfo(SDKType_Vector, SDKPass_ByRef);
+	if ((g_hWorldSpaceCenter = EndPrepSDKCall()) == null) { LogError("Failed to create SDKCall for CBaseEntity::WorldSpaceCenter!"); sigFailure = true; }
+	
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CTFWeaponBaseGun::GetWeaponProjectileType");
+	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
+	if ((g_hGetWeaponProjectileType = EndPrepSDKCall()) == null) { LogError("Failed to create SDKCall for CTFWeaponBaseGun::GetWeaponProjectileType!"); sigFailure = true; }
+	
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CTFWeaponBaseGun::GetProjectileSpeed");
+	PrepSDKCall_SetReturnInfo(SDKType_Float, SDKPass_Plain);	//Returns SPEED
+	if ((g_hGetProjectileSpeed = EndPrepSDKCall()) == null) { LogError("Failed to create SDKCall for CTFWeaponBaseGun::GetProjectileSpeed!"); sigFailure = true; }
+	
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CBaseEntity::VPhysicsDestroyObject");
+	if ((g_hVPhysicsDestroyObject = EndPrepSDKCall()) == null) { LogError("Failed to create SDKCall for CBaseEntity::VPhysicsDestroyObject!"); sigFailure = true; }
+	
 	if (sigFailure)
 		SetFailState("One or more signatures failed!");
 }
@@ -90,7 +113,29 @@ void InitDroppedWeapon(int droppedWeapon, int player, int weapon, bool swap, boo
 	return vec;
 } */
 
-int TFWeaponFireProjectile(int weapon, int player)
+int TFWG_FireProjectile(int weapon, int player)
 {
 	return SDKCall(g_hFireProjectile, weapon, player);
+}
+
+float[] WorldSpaceCenter(int entity)
+{
+	float vecPos[3];
+	SDKCall(g_hWorldSpaceCenter, entity, vecPos);
+	return vecPos;
+}
+
+int TFWG_GetWeaponProjectileType(int weapon)
+{
+	return SDKCall(g_hGetWeaponProjectileType, weapon);
+}
+
+float TFWG_GetProjectileSpeed(int weapon)
+{
+	return SDKCall(g_hGetProjectileSpeed, weapon);
+}
+
+void VPhysicsDestroyObject(int entity)
+{
+	SDKCall(g_hVPhysicsDestroyObject, entity);
 }

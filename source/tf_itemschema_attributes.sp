@@ -7,6 +7,12 @@
 #pragma semicolon 1
 #pragma newdecls required
 
+#define FLT_MAX	view_as<float>(0x7f7fffff)
+#define FLT_MIN	view_as<float>(0x00800000)
+#define DEG2RAD(%1) ((%1) * FLOAT_PI / 180.0)
+
+#define MAX_EDICTS	2048
+
 #define ATTRIBUTE_ENHANCEMENTS
 // #define JOINBLU_BUSTER_ROBOT
 
@@ -42,6 +48,62 @@ enum ParticleAttachment_t
 	PATTACH_ROOTBONE_FOLLOW
 };
 
+enum //ProjectileType_t
+{
+	TF_PROJECTILE_NONE,
+	TF_PROJECTILE_BULLET,
+	TF_PROJECTILE_ROCKET,
+	TF_PROJECTILE_PIPEBOMB,
+	TF_PROJECTILE_PIPEBOMB_REMOTE,
+	TF_PROJECTILE_SYRINGE,
+	TF_PROJECTILE_FLARE,
+	TF_PROJECTILE_JAR,
+	TF_PROJECTILE_ARROW,
+	TF_PROJECTILE_FLAME_ROCKET,
+	TF_PROJECTILE_JAR_MILK,
+	TF_PROJECTILE_HEALING_BOLT,
+	TF_PROJECTILE_ENERGY_BALL,
+	TF_PROJECTILE_ENERGY_RING,
+	TF_PROJECTILE_PIPEBOMB_PRACTICE,
+	TF_PROJECTILE_CLEAVER,
+	TF_PROJECTILE_STICKY_BALL,
+	TF_PROJECTILE_CANNONBALL,
+	TF_PROJECTILE_BUILDING_REPAIR_BOLT,
+	TF_PROJECTILE_FESTIVE_ARROW,
+	TF_PROJECTILE_THROWABLE,
+	TF_PROJECTILE_SPELL,
+	TF_PROJECTILE_FESTIVE_JAR,
+	TF_PROJECTILE_FESTIVE_HEALING_BOLT,
+	TF_PROJECTILE_BREADMONSTER_JARATE,
+	TF_PROJECTILE_BREADMONSTER_MADMILK,
+	TF_PROJECTILE_GRAPPLINGHOOK,
+	TF_PROJECTILE_SENTRY_ROCKET,
+	TF_PROJECTILE_BREAD_MONSTER,
+	TF_PROJECTILE_JAR_GAS,
+	TF_PROJECTILE_BALLOFFIRE,
+	TF_NUM_PROJECTILES
+};
+
+//Homing Rockets
+//TODO: please use a methodmap for this shit
+//Using it in the code as it is is fucking atrocious
+bool HR_enabled[MAX_EDICTS + 1];
+bool HR_ignoreDisguised[MAX_EDICTS + 1] = {true, ...};
+bool HR_ignoreStealthed[MAX_EDICTS + 1] = {true, ...};
+bool HR_followCrosshair[MAX_EDICTS + 1];
+bool HR_predictTargetSpeed[MAX_EDICTS + 1] = {true, ...};
+float HR_speed[MAX_EDICTS + 1] = {1.0, ...};
+float HR_turnPower[MAX_EDICTS + 1];
+float HR_minDotProduct[MAX_EDICTS + 1] = {-0.25, ...};
+float HR_aimTIme[MAX_EDICTS + 1] = {9999.0, ...};
+float HR_aimStartTime[MAX_EDICTS + 1];
+float HR_acceleration[MAX_EDICTS + 1];
+float HR_accelerationTime[MAX_EDICTS + 1] = {9999.0, ...};
+float HR_accelerationStart[MAX_EDICTS + 1];
+float HR_gravity[MAX_EDICTS + 1];
+bool HR_homedIn[MAX_EDICTS + 1];
+float HR_homedInAngle[MAX_EDICTS + 1][3];
+
 ConVar sv_stepsize;
 
 #include "item_custom_attributes/dhooks.sp"
@@ -54,7 +116,7 @@ public Plugin myinfo =
 	name = "[TF2] Custom Item Schema Attributes",
 	author = "Officer Spy",
 	description = "Checks for extra attributes that were injected by another mod.",
-	version = "1.0.7",
+	version = "1.0.8",
 	url = ""
 };
 
@@ -74,6 +136,9 @@ public void OnConfigsExecuted()
 
 public void OnEntityCreated(int entity, const char[] classname)
 {	
+	if (StrContains(classname, "tf_projectile") != -1)
+		SDKHook(entity, SDKHook_SpawnPost, ProjectileSpawnPost);
+	
 	DHooks_OnEntityCreated(entity, classname);
 }
 
@@ -145,11 +210,6 @@ void SetCustomProjectileModel(int weapon, int proj)
 	}
 }
 
-bool IsWeaponBaseGun(int entity)
-{
-	return HasEntProp(entity, Prop_Data, "CTFWeaponBaseGunZoomOutIn");
-}
-
 void CustomlyModifyLaunchedProjectile(int weapon, int projectile, bool isNativeSpawned)
 {
 	char particleName[128]; TF2Attrib_HookValueString("", "projectile_trail_particle", weapon, particleName, sizeof(particleName));
@@ -188,8 +248,178 @@ void ApplyOnHitAttributes(int weapon, int victim, int attacker, float damage)
 	if (strlen(str) > 0)
 	{
 		PrecacheSound(str);
-		EmitSoundToAll(str, victim);
+		EmitSoundToAll(str);
 	}
+}
+
+//CBaseEntity *ent, Vector *pNewPosition, Vector *pNewVelocity, QAngle *pNewAngles, QAngle *pNewAngVelocity
+bool PerformCustomPhysics(int ent, float pNewPosition[3], float pNewVelocity[3], float pNewAngles[3], float pNewAngVelocity[3])
+{
+	int proj = ent;
+	// float seek = 0.0;
+	if (!IsValidEntity(proj))
+		return false;
+	
+	if (!HR_enabled[proj])
+		return false;
+	
+	float time = GetEntPropFloat(proj, Prop_Data, "m_flSimulationTime") - GetEntPropFloat(proj, Prop_Data, "m_flAnimTime");
+	
+	float speed_calculated = HR_speed[proj] + HR_acceleration[proj] * UTIL_Clamp(time - HR_accelerationStart[proj], 0.0, HR_accelerationTime[proj]);
+	
+	float interval = (3000.0 / speed_calculated) * 0.014;
+	
+	if (HR_turnPower[proj] != 0.0 && time >= HR_aimStartTime[proj] && time < HR_aimTIme[proj] && GetGameTickCount() % RoundToCeil(interval / GetTickInterval()) == 0)
+	{
+		float target_vec[3];
+		
+		if (HR_followCrosshair[proj])
+		{
+			int owner = TF2_GetEntityOwner(proj);
+			if (IsValidEntity(owner))
+			{
+				float myEyeAngles[3]; GetClientEyeAngles(owner, myEyeAngles);
+				float vForward[3]; GetAngleVectors(myEyeAngles, vForward, NULL_VECTOR, NULL_VECTOR);
+				
+				float vecTemp[3];	vecTemp = GetEyePosition(owner);
+				vecTemp[0] = vecTemp[0] + 4000.0 * vForward[0];
+				vecTemp[1] = vecTemp[1] + 4000.0 * vForward[1];
+				vecTemp[2] = vecTemp[2] + 4000.0 * vForward[2];
+				
+				Handle trace = TR_TraceRayFilterEx(GetEyePosition(owner), vecTemp, MASK_SHOT, RayType_EndPoint, TraceFilterIgnoreFriendlyCombatItems, owner);
+				
+				TR_GetEndPosition(target_vec, trace);
+				
+				delete trace;
+			}
+		}
+		else
+		{
+			float target_dotproduct = FLT_MIN;
+			int target_player = -1;
+			for (int i = 1; i <= MaxClients; i++)
+			{
+				if (!IsClientInGame(i))
+					continue;
+				
+				if (!IsPlayerAlive(i))
+					continue;
+				
+				if (TF2_GetClientTeam(i) == TFTeam_Spectator)
+					continue;
+				
+				if (TF2_GetClientTeam(i) == TF2_GetTeam(proj))
+					continue;
+				
+				if (HR_ignoreDisguised[proj])
+					if (TF2_IsPlayerInCondition(i, TFCond_Disguised) && GetDisguiseTeam(i) == TF2_GetTeam(proj))
+						continue;
+				
+				if (HR_ignoreStealthed[proj])
+					if (IsStealthed(i) && GetPercentInvisible(i) >= 0.75 && !TF2_IsPlayerInCondition(i, TFCond_CloakFlicker) && !TF2_IsPlayerInCondition(i, TFCond_OnFire) && !TF2_IsPlayerInCondition(i, TFCond_Jarated) && !TF2_IsPlayerInCondition(i, TFCond_Bleeding))
+						continue;
+				
+				float delta[3]; SubtractVectors(WorldSpaceCenter(i), WorldSpaceCenter(proj), delta);
+				
+				float mindotproduct = HR_minDotProduct[proj];
+				float deltaNoramlized[3];	NormalizeVector(delta, deltaNoramlized);
+				float newVelocityNormalized[3];	NormalizeVector(pNewVelocity, newVelocityNormalized);
+				float dotproduct = GetVectorDotProduct(deltaNoramlized, newVelocityNormalized);
+				
+				if (dotproduct < mindotproduct)
+					continue;
+				
+				if (dotproduct > target_dotproduct)
+				{
+					Handle trace = TR_TraceRayEx(WorldSpaceCenter(i), WorldSpaceCenter(proj), MASK_SOLID_BRUSHONLY, RayType_EndPoint);
+					
+					if (!TR_DidHit(trace) || TR_GetEntityIndex(trace) == proj)
+					{
+						target_player = i;
+						target_dotproduct = dotproduct;
+					}
+					
+					delete trace;
+				}
+			}
+			
+			if (IsValidEntity(target_player))
+			{
+				target_vec = WorldSpaceCenter(target_player);
+				float target_distance = GetVectorDistance(WorldSpaceCenter(proj), WorldSpaceCenter(target_player));
+				
+				if (HR_predictTargetSpeed[proj])
+				{
+					float vecTemp[3]; vecTemp = GetAbsVelocity(target_player);
+					vecTemp[0] = vecTemp[0] * target_distance / speed_calculated;
+					vecTemp[1] = vecTemp[1] * target_distance / speed_calculated;
+					vecTemp[2] = vecTemp[2] * target_distance / speed_calculated;
+					
+					AddVectors(target_vec, vecTemp, target_vec);
+				}
+			}
+		}
+		
+		if (!IsNullVector(target_vec))
+		{
+			float angToTarget[3];
+			float vecTemp[3]; SubtractVectors(target_vec, WorldSpaceCenter(proj), vecTemp);
+			GetVectorAngles(vecTemp, angToTarget);
+			
+			HR_homedIn[proj] = true;
+			HR_homedInAngle[proj] = angToTarget;
+		}
+		else
+			HR_homedIn[proj] = false;
+		
+	}
+		
+	if (HR_homedIn[proj])
+	{
+		float ticksPerSecond = 1.0 / GetGameFrameTime();
+		pNewAngVelocity[0] = (UTIL_ApproachAngle(HR_homedInAngle[proj][0], pNewAngles[0], HR_turnPower[proj] * GetGameFrameTime()) - pNewAngles[0]) * ticksPerSecond;
+		pNewAngVelocity[1] = (UTIL_ApproachAngle(HR_homedInAngle[proj][1], pNewAngles[1], HR_turnPower[proj] * GetGameFrameTime()) - pNewAngles[1]) * ticksPerSecond;
+		pNewAngVelocity[2] = (UTIL_ApproachAngle(HR_homedInAngle[proj][2], pNewAngles[2], HR_turnPower[proj] * GetGameFrameTime()) - pNewAngles[2]) * ticksPerSecond;
+	}
+	
+	if (time < HR_aimTIme[proj])
+	{
+		float vecTemp[3];	vecTemp = pNewAngVelocity;
+		ScaleVector(vecTemp, GetGameFrameTime());
+		AddVectors(pNewAngles, vecTemp, pNewAngles);
+	}
+	
+	float vecOrientation[3];
+	GetAngleVectors(pNewAngles, vecOrientation, NULL_VECTOR, NULL_VECTOR);
+	
+	float vecTemp[3];	vecTemp = vecOrientation;
+	ScaleVector(vecTemp, speed_calculated);
+	
+	float vecTemp1[3]; vecTemp1[2] = -HR_gravity[proj] * time;
+	AddVectors(vecTemp, vecTemp1, pNewVelocity);
+	
+	//No gravity bitches?
+	
+	float vecTemp2[3];	vecTemp2 = pNewVelocity;
+	ScaleVector(vecTemp2, GetGameFrameTime());
+	
+	AddVectors(pNewPosition, vecTemp2, pNewPosition);
+	return true;
+}
+
+public bool TraceFilterIgnoreFriendlyCombatItems(int entity, int contentsMask, any data)
+{
+	char classname[64];	GetEntityClassname(entity, classname, sizeof(classname));
+	
+	if (StrEqual(classname, "entity_revive_marker") || StrEqual(classname, "entity_medigun_shield"))
+	{
+		if (TF2_GetTeam(entity) == TF2_GetClientTeam(data))
+			return false;
+		
+		//m_bNoChain check but we don't care about it
+	}
+	
+	return !(entity == data);
 }
 
 stock bool IsValidClientIndex(int client)
@@ -250,6 +480,14 @@ stock bool IsMiniBoss(int client)
 	return view_as<bool>(GetEntProp(client, Prop_Send, "m_bIsMiniBoss"));
 }
 
+stock void VScriptSetSize(int entity, float mins[3], float maxs[3])
+{
+	char buffer[256]; Format(buffer, sizeof(buffer), "!self.SetSize(Vector(%.2f, %.2f, %.2f), Vector(%.2f, %.2f, %.2f))", mins[0], mins[1], mins[2], maxs[0], maxs[1], maxs[2]);
+	
+	SetVariantString(buffer);
+	AcceptEntityInput(entity, "RunScriptCode");
+}
+
 stock Address GetEconItemView(int item)
 {
 	char netclass[32];
@@ -308,10 +546,166 @@ stock bool IsSentryBusterRobot(int client)
 	return StrEqual(model, "models/bots/demo/bot_sentry_buster.mdl");
 }
 
-stock void VScriptSetSize(int entity, float mins[3], float maxs[3])
+stock bool IsWeaponBaseGun(int entity)
 {
-	char buffer[256]; Format(buffer, sizeof(buffer), "!self.SetSize(Vector(%.2f, %.2f, %.2f), Vector(%.2f, %.2f, %.2f))", mins[0], mins[1], mins[2], maxs[0], maxs[1], maxs[2]);
+	return HasEntProp(entity, Prop_Data, "CTFWeaponBaseGunZoomOutIn");
+}
+
+stock int GetProjectileOriginalLauncher(int projectile)
+{
+	return GetEntPropEnt(projectile, Prop_Send, "m_hOriginalLauncher");
+}
+
+stock float CalculateProjectileSpeed(int weapon)
+{
+	if (!IsValidEntity(weapon))
+		return 0.0;
 	
-	SetVariantString(buffer);
-	AcceptEntityInput(entity, "RunScriptCode");
+	float speed = 0.0;
+	
+	int weaponid = TF2Util_GetWeaponID(weapon);
+	int projid = TF2Attrib_HookValueInt(0, "override_projectile_type", weapon);
+	
+	if (projid == 0)
+		projid = TFWG_GetWeaponProjectileType(weapon);
+	
+	switch(projid)
+	{
+		case TF_PROJECTILE_ROCKET:	speed = 1100.0;
+		case TF_PROJECTILE_FLARE:	speed = 2000.0;
+		case TF_PROJECTILE_SYRINGE:	speed = 1000.0;
+		case TF_PROJECTILE_ENERGY_RING:
+		{
+			int penetrate = TF2Attrib_HookValueInt(0, "energy_weapon_penetration", weapon);
+			speed = penetrate ? 840.0 : 1200.0;
+		}
+		case TF_PROJECTILE_BALLOFFIRE:	speed = 3000.0;
+		default:	speed = TFWG_GetProjectileSpeed(weapon);
+	}
+	
+	if (weaponid != TF_WEAPON_GRENADELAUNCHER && weaponid != TF_WEAPON_CANNON && weaponid != TF_WEAPON_CROSSBOW && weaponid != TF_WEAPON_COMPOUND_BOW && weaponid != TF_WEAPON_GRAPPLINGHOOK && weaponid != TF_WEAPON_SHOTGUN_BUILDING_RESCUE)
+	{
+		float mult_speed = TF2Attrib_HookValueFloat(1.0, "mult_projectile_speed", weapon);
+		speed *= mult_speed;
+	}
+	
+	if (projid == TF_PROJECTILE_ROCKET)
+	{
+		int specialist = TF2Attrib_HookValueInt(0, "rocket_specialist", weapon);
+		speed *= RemapVal(float(specialist), 1.0, 4.0, 1.15, 1.6);
+	}
+	
+	return speed;
+}
+
+stock float ClampFloat(const float val, const float minVal, const float maxVal)
+{
+	if (val < minVal)
+		return minVal;
+	else if (val > maxVal)
+		return maxVal;
+	else
+		return val;
+}
+
+stock TFTeam TF2_GetTeam(int entity)
+{
+	return view_as<TFTeam>(GetEntProp(entity, Prop_Send, "m_iTeamNum"));
+}
+
+stock TFTeam GetDisguiseTeam(int client)
+{
+	return view_as<TFTeam>(GetEntProp(client, Prop_Send, "m_nDisguiseTeam"));
+}
+
+stock bool IsStealthed(int client)
+{
+	return (TF2_IsPlayerInCondition(client, TFCond_Cloaked) || TF2_IsPlayerInCondition(client, TFCond_Stealthed) || TF2_IsPlayerInCondition(client, TFCond_StealthedUserBuffFade));
+}
+
+stock float GetPercentInvisible(int client)
+{
+	static int iOffset = -1;
+	if (iOffset == -1)
+		iOffset = FindSendPropInfo("CTFPlayer", "m_flInvisChangeCompleteTime") - 8;
+	
+	return GetEntDataFloat(client, iOffset);
+}
+
+stock float[] GetAbsVelocity(int entity)
+{
+	float v[3];
+	GetEntPropVector(entity, Prop_Data, "m_vecAbsVelocity", v);
+	return v;
+}
+
+stock float fmodf(float num, float denom)
+{
+	return num - denom * RoundToFloor(num / denom);
+}
+
+stock void SinCos( float rad, float &s, float &c )
+{
+	s = Sine( rad );
+	c = Cosine( rad );
+}
+
+stock float UTIL_AngleNormalize(float angle)
+{
+	angle = fmodf(angle, 360.0);
+	if (angle > 180.0) angle -= 360.0;
+	if (angle < -180.0) angle += 360.0;
+	return angle;
+}
+
+stock float UTIL_AngleDiff(float firstAngle, float secondAngle)
+{
+	float diff = fmodf(firstAngle - secondAngle, 360.0);
+	if ( firstAngle > secondAngle )
+	{
+		if ( diff >= 180 )
+			diff -= 360;
+	}
+	else
+	{
+		if ( diff <= -180 )
+			diff += 360;
+	}
+	return diff;
+}
+
+stock float UTIL_ApproachAngle( float target, float value, float speed )
+{
+	float delta = UTIL_AngleDiff(target, value);
+
+	// Speed is assumed to be positive
+	if ( speed < 0 )
+		speed = -speed;
+
+	if ( delta < -180 )
+		delta += 360;
+	else if ( delta > 180 )
+		delta -= 360;
+
+	if ( delta > speed )
+		value += speed;
+	else if ( delta < -speed )
+		value -= speed;
+	else 
+		value = target;
+
+	return value;
+}
+
+stock float UTIL_Clamp(float f1, float f2, float f3)
+{
+	return (f1 > f3 ? f3 : (f1 < f2 ? f2 : f1));
+}
+
+stock float RemapVal(float val, float A, float B, float C, float D)
+{
+	if (A == B)
+		return val >= B ? D : C;
+	else
+		return C + (D - C) * (val - A) / (B - A);
 }
