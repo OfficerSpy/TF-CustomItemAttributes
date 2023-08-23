@@ -92,5 +92,14 @@ public void ProjectileSpawnPost(int entity)
 			else
 				HR_enabled[entity] = false;
 		}
+		
+		PrintToServer("HR_minDotProduct %f", HR_minDotProduct[entity]);
+		PrintToServer("HR_aimTIme %f", HR_aimTIme[entity]);
+		PrintToServer("HR_aimStartTime %f", HR_aimStartTime[entity]);
+		PrintToServer("HR_accelerationTime %f", HR_accelerationTime[entity]);
+		PrintToServer("HR_accelerationStart %f", HR_accelerationStart[entity]);
+		PrintToServer("HR_followCrosshair %d", HR_followCrosshair[entity] ? 1 : 0);
+		PrintToServer("HR_predictTargetSpeed %d", HR_predictTargetSpeed[entity] ? 1 : 0);
+		PrintToServer("HR_speed %f", HR_speed[entity]);
 	}
 }

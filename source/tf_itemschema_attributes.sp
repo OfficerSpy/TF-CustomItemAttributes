@@ -116,7 +116,7 @@ public Plugin myinfo =
 	name = "[TF2] Custom Item Schema Attributes",
 	author = "Officer Spy",
 	description = "Checks for extra attributes that were injected by another mod.",
-	version = "1.0.8",
+	version = "1.0.9",
 	url = ""
 };
 
@@ -206,7 +206,7 @@ void SetCustomProjectileModel(int weapon, int proj)
 		max[1] += collScale;
 		max[2] += collScale;
 		
-		VScriptSetSize(proj, min, max);
+		VS_SetSize(proj, min, max);
 	}
 }
 
@@ -263,7 +263,7 @@ bool PerformCustomPhysics(int ent, float pNewPosition[3], float pNewVelocity[3],
 	if (!HR_enabled[proj])
 		return false;
 	
-	float time = GetEntPropFloat(proj, Prop_Data, "m_flSimulationTime") - GetEntPropFloat(proj, Prop_Data, "m_flAnimTime");
+	float time = float(GetEntProp(ent, Prop_Send, "m_flSimulationTime")) - float(GetEntProp(ent, Prop_Send, "m_flAnimTime"));
 	
 	float speed_calculated = HR_speed[proj] + HR_acceleration[proj] * UTIL_Clamp(time - HR_accelerationStart[proj], 0.0, HR_accelerationTime[proj]);
 	
@@ -278,15 +278,15 @@ bool PerformCustomPhysics(int ent, float pNewPosition[3], float pNewVelocity[3],
 			int owner = TF2_GetEntityOwner(proj);
 			if (IsValidEntity(owner))
 			{
-				float myEyeAngles[3]; GetClientEyeAngles(owner, myEyeAngles);
-				float vForward[3]; GetAngleVectors(myEyeAngles, vForward, NULL_VECTOR, NULL_VECTOR);
+				float ownerEyeAngles[3]; GetClientEyeAngles(owner, ownerEyeAngles);
+				float vForward[3]; GetAngleVectors(ownerEyeAngles, vForward, NULL_VECTOR, NULL_VECTOR);
 				
-				float vecTemp[3];	vecTemp = GetEyePosition(owner);
-				vecTemp[0] = vecTemp[0] + 4000.0 * vForward[0];
-				vecTemp[1] = vecTemp[1] + 4000.0 * vForward[1];
-				vecTemp[2] = vecTemp[2] + 4000.0 * vForward[2];
+				float vTemp[3];	vTemp = GetEyePosition(owner);
+				vTemp[0] = vTemp[0] + 4000.0 * vForward[0];
+				vTemp[1] = vTemp[1] + 4000.0 * vForward[1];
+				vTemp[2] = vTemp[2] + 4000.0 * vForward[2];
 				
-				Handle trace = TR_TraceRayFilterEx(GetEyePosition(owner), vecTemp, MASK_SHOT, RayType_EndPoint, TraceFilterIgnoreFriendlyCombatItems, owner);
+				Handle trace = TR_TraceRayFilterEx(GetEyePosition(owner), vTemp, MASK_SHOT, RayType_EndPoint, TraceFilterIgnoreFriendlyCombatItems, owner);
 				
 				TR_GetEndPosition(target_vec, trace);
 				
@@ -322,6 +322,7 @@ bool PerformCustomPhysics(int ent, float pNewPosition[3], float pNewVelocity[3],
 				float delta[3]; SubtractVectors(WorldSpaceCenter(i), WorldSpaceCenter(proj), delta);
 				
 				float mindotproduct = HR_minDotProduct[proj];
+				
 				float deltaNoramlized[3];	NormalizeVector(delta, deltaNoramlized);
 				float newVelocityNormalized[3];	NormalizeVector(pNewVelocity, newVelocityNormalized);
 				float dotproduct = GetVectorDotProduct(deltaNoramlized, newVelocityNormalized);
@@ -350,12 +351,12 @@ bool PerformCustomPhysics(int ent, float pNewPosition[3], float pNewVelocity[3],
 				
 				if (HR_predictTargetSpeed[proj])
 				{
-					float vecTemp[3]; vecTemp = GetAbsVelocity(target_player);
-					vecTemp[0] = vecTemp[0] * target_distance / speed_calculated;
-					vecTemp[1] = vecTemp[1] * target_distance / speed_calculated;
-					vecTemp[2] = vecTemp[2] * target_distance / speed_calculated;
+					float vTemp[3]; vTemp = GetAbsVelocity(target_player);
+					vTemp[0] = vTemp[0] * target_distance / speed_calculated;
+					vTemp[1] = vTemp[1] * target_distance / speed_calculated;
+					vTemp[2] = vTemp[2] * target_distance / speed_calculated;
 					
-					AddVectors(target_vec, vecTemp, target_vec);
+					AddVectors(target_vec, vTemp, target_vec);
 				}
 			}
 		}
@@ -363,15 +364,15 @@ bool PerformCustomPhysics(int ent, float pNewPosition[3], float pNewVelocity[3],
 		if (!IsNullVector(target_vec))
 		{
 			float angToTarget[3];
-			float vecTemp[3]; SubtractVectors(target_vec, WorldSpaceCenter(proj), vecTemp);
-			GetVectorAngles(vecTemp, angToTarget);
+			
+			float vTemp[3]; SubtractVectors(target_vec, WorldSpaceCenter(proj), vTemp);
+			GetVectorAngles(vTemp, angToTarget);
 			
 			HR_homedIn[proj] = true;
 			HR_homedInAngle[proj] = angToTarget;
 		}
 		else
 			HR_homedIn[proj] = false;
-		
 	}
 		
 	if (HR_homedIn[proj])
@@ -381,29 +382,28 @@ bool PerformCustomPhysics(int ent, float pNewPosition[3], float pNewVelocity[3],
 		pNewAngVelocity[1] = (UTIL_ApproachAngle(HR_homedInAngle[proj][1], pNewAngles[1], HR_turnPower[proj] * GetGameFrameTime()) - pNewAngles[1]) * ticksPerSecond;
 		pNewAngVelocity[2] = (UTIL_ApproachAngle(HR_homedInAngle[proj][2], pNewAngles[2], HR_turnPower[proj] * GetGameFrameTime()) - pNewAngles[2]) * ticksPerSecond;
 	}
-	
 	if (time < HR_aimTIme[proj])
 	{
-		float vecTemp[3];	vecTemp = pNewAngVelocity;
-		ScaleVector(vecTemp, GetGameFrameTime());
-		AddVectors(pNewAngles, vecTemp, pNewAngles);
+		float vTemp[3];	vTemp = pNewAngVelocity;
+		ScaleVector(vTemp, GetGameFrameTime());
+		AddVectors(pNewAngles, vTemp, pNewAngles);
 	}
 	
 	float vecOrientation[3];
 	GetAngleVectors(pNewAngles, vecOrientation, NULL_VECTOR, NULL_VECTOR);
 	
-	float vecTemp[3];	vecTemp = vecOrientation;
-	ScaleVector(vecTemp, speed_calculated);
+	float vTemp[3];	vTemp = vecOrientation;
+	ScaleVector(vTemp, speed_calculated);
 	
-	float vecTemp1[3]; vecTemp1[2] = -HR_gravity[proj] * time;
-	AddVectors(vecTemp, vecTemp1, pNewVelocity);
+	float vTemp1[3]; vTemp1[2] = -HR_gravity[proj] * time;
+	AddVectors(vTemp, vTemp1, pNewVelocity);
 	
 	//No gravity bitches?
 	
-	float vecTemp2[3];	vecTemp2 = pNewVelocity;
-	ScaleVector(vecTemp2, GetGameFrameTime());
+	float vTemp2[3];	vTemp2 = pNewVelocity;
+	ScaleVector(vTemp2, GetGameFrameTime());
 	
-	AddVectors(pNewPosition, vecTemp2, pNewPosition);
+	AddVectors(pNewPosition, vTemp2, pNewPosition);
 	return true;
 }
 
@@ -480,7 +480,7 @@ stock bool IsMiniBoss(int client)
 	return view_as<bool>(GetEntProp(client, Prop_Send, "m_bIsMiniBoss"));
 }
 
-stock void VScriptSetSize(int entity, float mins[3], float maxs[3])
+stock void VS_SetSize(int entity, float mins[3], float maxs[3])
 {
 	char buffer[256]; Format(buffer, sizeof(buffer), "!self.SetSize(Vector(%.2f, %.2f, %.2f), Vector(%.2f, %.2f, %.2f))", mins[0], mins[1], mins[2], maxs[0], maxs[1], maxs[2]);
 	
@@ -541,9 +541,10 @@ stock void ModelIndexToString(int index, char[] model, int size)
 
 stock bool IsSentryBusterRobot(int client)
 {
-	char model[PLATFORM_MAX_PATH];
-	GetClientModel(client, model, PLATFORM_MAX_PATH);
-	return StrEqual(model, "models/bots/demo/bot_sentry_buster.mdl");
+	char model[PLATFORM_MAX_PATH];	GetClientModel(client, model, sizeof(model));
+	
+	// return StrEqual(model, "models/bots/demo/bot_sentry_buster.mdl");
+	return StrContains(model, "sentry_buster") != -1;
 }
 
 stock bool IsWeaponBaseGun(int entity)
@@ -708,4 +709,12 @@ stock float RemapVal(float val, float A, float B, float C, float D)
 		return val >= B ? D : C;
 	else
 		return C + (D - C) * (val - A) / (B - A);
+}
+
+stock void VS_SetMoveType(int entity, MoveType movetype, int movecollide)
+{
+	char buffer[256]; Format(buffer, sizeof(buffer), "!self.SetMoveType(%d, %d)", movetype, movecollide);
+	
+	SetVariantString(buffer);
+	AcceptEntityInput(entity, "RunScriptCode");
 }
