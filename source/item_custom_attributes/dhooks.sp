@@ -17,6 +17,10 @@ static DynamicHook g_DHookEvent_Killed;
 static DynamicHook g_DHookFireProjectile;
 static DynamicHook g_DHookPerformCustomPhysics;
 
+#if defined ATTRIBUTE_ENHANCEMENTS
+static DynamicHook g_DHookGetCustomProjectileModel;
+#endif
+
 void DHooks_Initialize()
 {	
 	g_DynamicDetours = new ArrayList(sizeof(DetourData));
@@ -34,6 +38,10 @@ void DHooks_Initialize()
 		g_DHookEvent_Killed = DHooks_AddDynamicHook(hGamedata, "CTFPlayer::Event_Killed");
 		g_DHookFireProjectile = DHooks_AddDynamicHook(hGamedata, "CTFWeaponBaseGun::FireProjectile");
 		g_DHookPerformCustomPhysics = DHooks_AddDynamicHook(hGamedata, "CBaseEntity::PerformCustomPhysics");
+		
+#if defined ATTRIBUTE_ENHANCEMENTS
+		g_DHookGetCustomProjectileModel = DHooks_AddDynamicHook(hGamedata, "CTFWeaponBaseGun::GetCustomProjectileModel");
+#endif
 				
 		delete hGamedata;
 	}
@@ -160,7 +168,13 @@ void DHooks_OnClientPutInServer(int client)
 public void DHooksWeaponSpawnPost(int entity)
 {
 	if (IsWeaponBaseGun(entity))
+	{
 		DHooks_HookEntity(g_DHookFireProjectile, Hook_Post, entity, DHookCallback_FireProjectile_Post);
+		
+#if defined ATTRIBUTE_ENHANCEMENTS
+		DHooks_HookEntity(g_DHookGetCustomProjectileModel, Hook_Post, entity, DHookCallback_GetCustomProjectileModel_Post);
+#endif
+	}
 }
 
 static MRESReturn DHookCallback_ShouldHitEntity_Pre(Address pThis, DHookReturn hReturn, DHookParam hParams)
@@ -389,3 +403,19 @@ static MRESReturn DHookCallback_PerformCustomPhysics_Pre(int pThis, DHookParam h
 	
 	return MRES_Ignored;
 }
+
+#if defined ATTRIBUTE_ENHANCEMENTS
+static MRESReturn DHookCallback_GetCustomProjectileModel_Post(int pThis, DHookParam hParams)
+{
+	char model_path[256];	hParams.GetString(1, model_path, sizeof(model_path));
+	
+	PrintToChatAll("GetCustomProjectileModel %s", model_path);
+	
+	//The function is called before a custom model is set on the weapon but
+	//it's not precached so we precache it here to prevent an engine crash
+	if (strlen(model_path) > 0)
+		PrecacheModel(model_path);
+	
+	return MRES_Ignored;
+}
+#endif

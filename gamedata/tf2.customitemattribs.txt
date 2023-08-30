@@ -87,6 +87,11 @@
 				"windows"	"162"
 				"linux"		"163"
 			}
+			"CTFWeaponBaseGun::GetCustomProjectileModel"
+			{
+				"windows"	"480"
+				"linux"		"487"
+			}
 		}
 		"Functions"
 		{
@@ -224,6 +229,20 @@
 					"pNewAngVelocity"
 					{
 						"type"	"vectorptr"
+					}
+				}
+			}
+			"CTFWeaponBaseGun::GetCustomProjectileModel"
+			{
+				"offset"	"CTFWeaponBaseGun::GetCustomProjectileModel"
+				"hooktype"	"entity"
+				"return"	"void"
+				"this"		"entity"
+				"arguments"
+				{
+					"attrCustomProjModel"
+					{
+						"type"	"string"
 					}
 				}
 			}
