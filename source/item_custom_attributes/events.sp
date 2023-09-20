@@ -14,6 +14,7 @@ public Action Event_PlayerDeath_Change(Event event, const char[] name, bool dont
 		if (strlen(iconName) > 0)
 		{
 			event.SetString("weapon", iconName);
+			event.SetString("weapon_logclassname", iconName);
 			return Plugin_Changed;
 		}
 	}

@@ -116,7 +116,7 @@ public Plugin myinfo =
 	name = "[TF2] Custom Item Schema Attributes",
 	author = "Officer Spy",
 	description = "Checks for extra attributes that were injected by another mod.",
-	version = "1.0.9",
+	version = "1.1.0",
 	url = ""
 };
 
@@ -215,25 +215,38 @@ void CustomlyModifyLaunchedProjectile(int weapon, int projectile, bool isNativeS
 	char particleName[128]; TF2Attrib_HookValueString("", "projectile_trail_particle", weapon, particleName, sizeof(particleName));
 	if (strlen(particleName) > 0)
 	{
-		float color0[3], color1[3];
+		// float color0[3], color1[3];
 		
 		// color0 = GetWeaponParticleColor(weapon, 1);
 		// color1 = GetWeaponParticleColor(weapon, 2);
 		
-		//FIXME: this works in RequestFrame but not here?
-		//I'm not sure how that makes sense since overload 1 works in SpawnPost
-		//Also the original particle is removed even with reset set to false
+		//TODO: replace temporary entity with DispatchParticleEffect with color
 		if (StrContains(particleName, "~") != -1)
 		{
 			ReplaceString(particleName, sizeof(particleName), "~", "");
-			DispatchParticleEffect3(particleName, PATTACH_ABSORIGIN_FOLLOW, projectile, "trail", color0, color1, true, true);
+			
+			TE_SetupTFParticleEffect(particleName, NULL_VECTOR, _, _, projectile, PATTACH_ABSORIGIN_FOLLOW, _, true);
+			TE_SendToAll();
 		}
 		else
-			DispatchParticleEffect3(particleName, PATTACH_ABSORIGIN_FOLLOW, projectile, "trail", color0, color1, true, false);
+		{
+			TE_SetupTFParticleEffect(particleName, NULL_VECTOR, _, _, projectile, PATTACH_ABSORIGIN_FOLLOW, _, false);
+			TE_SendToAll();
+		}
 	}
-	//TODO: ModifyProjectile but ignore native spawned
 	
-	char soundName[128];	TF2Attrib_HookValueString("", "projectile_sound", weapon, soundName, sizeof(soundName));
+	//Natively spawned projectiles already have this done to them
+	//Only modify the ones created by the mod
+	if (!isNativeSpawned)
+		TFWBG_ModifyProjectile(weapon, projectile);
+	
+	float gravity = TF2Attrib_HookValueFloat(0.0, "projectile_gravity_native", weapon);
+	
+	if (gravity != 0.0)
+		SetEntityGravity(projectile, gravity);
+	
+	char soundName[128]; TF2Attrib_HookValueString("", "projectile_sound", weapon, soundName, sizeof(soundName));
+	
 	if (strlen(soundName) > 0)
 	{
 		PrecacheSound(soundName);
@@ -568,7 +581,7 @@ stock float CalculateProjectileSpeed(int weapon)
 	int projid = TF2Attrib_HookValueInt(0, "override_projectile_type", weapon);
 	
 	if (projid == 0)
-		projid = TFWG_GetWeaponProjectileType(weapon);
+		projid = TFWBG_GetWeaponProjectileType(weapon);
 	
 	switch(projid)
 	{
@@ -581,7 +594,7 @@ stock float CalculateProjectileSpeed(int weapon)
 			speed = penetrate ? 840.0 : 1200.0;
 		}
 		case TF_PROJECTILE_BALLOFFIRE:	speed = 3000.0;
-		default:	speed = TFWG_GetProjectileSpeed(weapon);
+		default:	speed = TFWBG_GetProjectileSpeed(weapon);
 	}
 	
 	if (weaponid != TF_WEAPON_GRENADELAUNCHER && weaponid != TF_WEAPON_CANNON && weaponid != TF_WEAPON_CROSSBOW && weaponid != TF_WEAPON_COMPOUND_BOW && weaponid != TF_WEAPON_GRAPPLINGHOOK && weaponid != TF_WEAPON_SHOTGUN_BUILDING_RESCUE)
@@ -717,4 +730,44 @@ stock void VS_SetMoveType(int entity, MoveType movetype, int movecollide)
 	
 	SetVariantString(buffer);
 	AcceptEntityInput(entity, "RunScriptCode");
+}
+
+//From stocksoup/tf/tempents_stocks.inc
+stock void TE_SetupTFParticleEffect(const char[] name, const float vecOrigin[3],
+		const float vecStart[3] = NULL_VECTOR, const float vecAngles[3] = NULL_VECTOR,
+		int entity = -1, ParticleAttachment_t attachType = PATTACH_ABSORIGIN,
+		int attachPoint = -1, bool bResetParticles = false) {
+	int particleTable, particleIndex;
+	
+	if ((particleTable = FindStringTable("ParticleEffectNames")) == INVALID_STRING_TABLE) {
+		ThrowError("Could not find string table: ParticleEffectNames");
+	}
+	
+	if ((particleIndex = FindStringIndex(particleTable, name)) == INVALID_STRING_INDEX) {
+		ThrowError("Could not find particle index: %s", name);
+	}
+	
+	TE_Start("TFParticleEffect");
+	TE_WriteFloat("m_vecOrigin[0]", vecOrigin[0]);
+	TE_WriteFloat("m_vecOrigin[1]", vecOrigin[1]);
+	TE_WriteFloat("m_vecOrigin[2]", vecOrigin[2]);
+	TE_WriteFloat("m_vecStart[0]", vecStart[0]);
+	TE_WriteFloat("m_vecStart[1]", vecStart[1]);
+	TE_WriteFloat("m_vecStart[2]", vecStart[2]);
+	TE_WriteVector("m_vecAngles", vecAngles);
+	TE_WriteNum("m_iParticleSystemIndex", particleIndex);
+	
+	if (entity != -1) {
+		TE_WriteNum("entindex", entity);
+	}
+	
+	if (attachType != PATTACH_ABSORIGIN) {
+		TE_WriteNum("m_iAttachType", view_as<int>(attachType));
+	}
+	
+	if (attachPoint != -1) {
+		TE_WriteNum("m_iAttachmentPointIndex", attachPoint);
+	}
+	
+	TE_WriteNum("m_bResetParticles", bResetParticles ? 1 : 0);
 }

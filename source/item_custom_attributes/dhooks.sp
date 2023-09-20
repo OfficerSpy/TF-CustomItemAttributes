@@ -31,7 +31,8 @@ void DHooks_Initialize()
 	{
 		DHooks_AddDynamicDetour(hGamedata, "CTraceFilterObject::ShouldHitEntity", DHookCallback_ShouldHitEntity_Pre);
 		DHooks_AddDynamicDetour(hGamedata, "CTFPlayerShared::StunPlayer", DHookCallback_StunPlayer_Pre);
-		DHooks_AddDynamicDetour(hGamedata, "CBaseObject::FindSnapToBuildPos", DHookCallback_FindSnapToBuildPos_Pre, DHookCallback_FindSnapToBuildPos_Post);
+		DHooks_AddDynamicDetour(hGamedata, "CBaseObject::FindSnapToBuildPos", DHookCallback_FindSnapToBuildPos_Pre, DHookCallback_FindSnapToBuildPos_Post); //TODO: replace with FindBuildPointOnPlayer
+		DHooks_AddDynamicDetour(hGamedata, "CTFPlayer::IsAllowedToTaunt", DHookCallback_IsAllowedToTaunt_Pre);
 		
 		g_DHookWeaponSound = DHooks_AddDynamicHook(hGamedata, "CBaseCombatWeapon::WeaponSound");
 		g_DHookIsDeflectable = DHooks_AddDynamicHook(hGamedata, "CBaseEntity::IsDeflectable");
@@ -275,6 +276,30 @@ static MRESReturn DHookCallback_FindSnapToBuildPos_Post(int pThis, DHookReturn h
 	return MRES_Ignored;
 }
 
+static MRESReturn DHookCallback_IsAllowedToTaunt_Pre(int pThis, DHookReturn hReturn)
+{
+	int cannotTaunt = TF2Attrib_HookValueInt(0, "cannot_taunt", pThis);
+	
+	if (cannotTaunt)
+	{
+		hReturn.Value = false;
+		return MRES_Supercede;
+	}
+	
+	if (IsPlayerAlive(pThis))
+	{
+		int allowTaunt = TF2Attrib_HookValueInt(0, "always_allow_taunt", pThis);
+		
+		if (allowTaunt > 1 || (allowTaunt == 1 && !TF2_IsPlayerInCondition(pThis, TFCond_Taunting)))
+		{
+			hReturn.Value = true;
+			return MRES_Supercede;
+		}
+	}
+	
+	return MRES_Ignored;
+}
+
 static MRESReturn DHookCallback_WeaponSound_Pre(int pThis, DHookParam hParams)
 {
 	int index = hParams.Get(1);
@@ -365,7 +390,7 @@ static MRESReturn DHookCallback_FireProjectile_Post(int pThis, DHookReturn hRetu
 	bSkip = true;
 	for (int i = 1; i < attr_projectile_count; i++) //Start from 1 since we still let the original pass
 	{
-		int newProj = TFWG_FireProjectile(pThis, player);
+		int newProj = TFWBG_FireProjectile(pThis, player);
 		CustomlyModifyLaunchedProjectile(pThis, newProj, false);
 	}
 	bSkip = false;
@@ -409,7 +434,7 @@ static MRESReturn DHookCallback_GetCustomProjectileModel_Post(int pThis, DHookPa
 {
 	char model_path[256];	hParams.GetString(1, model_path, sizeof(model_path));
 	
-	PrintToChatAll("GetCustomProjectileModel %s", model_path);
+	// PrintToChatAll("GetCustomProjectileModel %s", model_path);
 	
 	//The function is called before a custom model is set on the weapon but
 	//it's not precached so we precache it here to prevent an engine crash

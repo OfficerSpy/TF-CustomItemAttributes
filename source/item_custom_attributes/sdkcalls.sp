@@ -1,19 +1,20 @@
-Handle g_hDispatchParticleEffect3;
-Handle g_hDroppedWeaponCreate;
-Handle g_hInitDroppedWeapon;
+// static Handle g_hDispatchParticleEffect3;
+static Handle g_hDroppedWeaponCreate;
+static Handle g_hInitDroppedWeapon;
 // Handle g_hSDKGetParticleColor;
-Handle g_hFireProjectile;
-Handle g_hWorldSpaceCenter;
-Handle g_hGetWeaponProjectileType;
-Handle g_hGetProjectileSpeed;
-Handle g_hVPhysicsDestroyObject;
+static Handle g_hFireProjectile;
+static Handle g_hWorldSpaceCenter;
+static Handle g_hGetWeaponProjectileType;
+static Handle g_hGetProjectileSpeed;
+static Handle g_hVPhysicsDestroyObject;
+static Handle g_hModifyProjectile;
 
 void SetupSDKCalls()
 {
 	Handle hConf = LoadGameConfigFile("tf2.customitemattribs");
 	bool sigFailure;
 		
-	StartPrepSDKCall(SDKCall_Static);
+	/* StartPrepSDKCall(SDKCall_Static);
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "DispatchParticleEffect3");
 	PrepSDKCall_AddParameter(SDKType_String, SDKPass_Pointer); //pszParticleName
 	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain); //iAttachType
@@ -23,7 +24,7 @@ void SetupSDKCalls()
 	PrepSDKCall_AddParameter(SDKType_Vector, SDKPass_Pointer); //vecColor2
 	PrepSDKCall_AddParameter(SDKType_Bool, SDKPass_Plain); //bUseColors
 	PrepSDKCall_AddParameter(SDKType_Bool, SDKPass_Plain); //bResetAllParticlesOnEntity 
-	if ((g_hDispatchParticleEffect3 = EndPrepSDKCall()) == null) { LogError("Failed to create SDKCall for DispatchParticleEffect!"); sigFailure = true; }
+	if ((g_hDispatchParticleEffect3 = EndPrepSDKCall()) == null) { LogError("Failed to create SDKCall for DispatchParticleEffect!"); sigFailure = true; } */
 	
 	StartPrepSDKCall(SDKCall_Static);
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Signature, "CTFDroppedWeapon::Create");
@@ -75,14 +76,19 @@ void SetupSDKCalls()
 	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CBaseEntity::VPhysicsDestroyObject");
 	if ((g_hVPhysicsDestroyObject = EndPrepSDKCall()) == null) { LogError("Failed to create SDKCall for CBaseEntity::VPhysicsDestroyObject!"); sigFailure = true; }
 	
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hConf, SDKConf_Virtual, "CTFWeaponBaseGun::ModifyProjectile");
+	PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer);
+	if ((g_hModifyProjectile = EndPrepSDKCall()) == null) { LogError("Failed to create SDKCall for CTFWeaponBaseGun::ModifyProjectile!"); sigFailure = true; }
+	
 	if (sigFailure)
 		SetFailState("One or more signatures failed!");
 }
 
-void DispatchParticleEffect3(char[] particleName, ParticleAttachment_t attachType, int entity, char[] attachmentName, float vecColor1[3], float vecColor2[3], bool useColors = true, bool resetAllParticles = false)
+/* void DispatchParticleEffect3(char[] particleName, ParticleAttachment_t attachType, int entity, char[] attachmentName, float vecColor1[3], float vecColor2[3], bool useColors = true, bool resetAllParticles = false)
 {
 	SDKCall(g_hDispatchParticleEffect3, particleName, attachType, entity, attachmentName, vecColor1, vecColor2, useColors, resetAllParticles);
-}
+} */
 
 int CreateDroppedWeapon(int lastOwner, const float origin[3], const float angles[3], const char[] modelName, Address item)
 {
@@ -113,7 +119,7 @@ void InitDroppedWeapon(int droppedWeapon, int player, int weapon, bool swap, boo
 	return vec;
 } */
 
-int TFWG_FireProjectile(int weapon, int player)
+int TFWBG_FireProjectile(int weapon, int player)
 {
 	return SDKCall(g_hFireProjectile, weapon, player);
 }
@@ -125,12 +131,12 @@ float[] WorldSpaceCenter(int entity)
 	return vecPos;
 }
 
-int TFWG_GetWeaponProjectileType(int weapon)
+int TFWBG_GetWeaponProjectileType(int weapon)
 {
 	return SDKCall(g_hGetWeaponProjectileType, weapon);
 }
 
-float TFWG_GetProjectileSpeed(int weapon)
+float TFWBG_GetProjectileSpeed(int weapon)
 {
 	return SDKCall(g_hGetProjectileSpeed, weapon);
 }
@@ -138,4 +144,9 @@ float TFWG_GetProjectileSpeed(int weapon)
 void VPhysicsDestroyObject(int entity)
 {
 	SDKCall(g_hVPhysicsDestroyObject, entity);
+}
+
+void TFWBG_ModifyProjectile(int weapon, int proj)
+{
+	SDKCall(g_hModifyProjectile, weapon, proj);
 }
