@@ -116,7 +116,7 @@ public Plugin myinfo =
 	name = "[TF2] Custom Item Schema Attributes",
 	author = "Officer Spy",
 	description = "Checks for extra attributes that were injected by another mod.",
-	version = "1.1.0",
+	version = "1.1.1",
 	url = ""
 };
 
@@ -770,4 +770,17 @@ stock void TE_SetupTFParticleEffect(const char[] name, const float vecOrigin[3],
 	}
 	
 	TE_WriteNum("m_bResetParticles", bResetParticles ? 1 : 0);
+}
+
+stock int Player_GetGroundEntity(int client)
+{
+	return GetEntPropEnt(client, Prop_Send, "m_hGroundEntity");
+}
+
+stock void VS_ApplyAbsVelocityImpulse(int entity, float inVecImpulse[3])
+{
+	char buffer[256]; Format(buffer, sizeof(buffer), "!self.ApplyAbsVelocityImpulse(Vector(%f, %f, %f))", inVecImpulse[0], inVecImpulse[1], inVecImpulse[2]);
+	
+	SetVariantString(buffer);
+	AcceptEntityInput(entity, "RunScriptCode");
 }

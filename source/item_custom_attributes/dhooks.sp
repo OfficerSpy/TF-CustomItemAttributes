@@ -16,10 +16,14 @@ static DynamicHook g_DHookIsDeflectable;
 static DynamicHook g_DHookEvent_Killed;
 static DynamicHook g_DHookFireProjectile;
 static DynamicHook g_DHookPerformCustomPhysics;
+static DynamicHook g_DHookCheckFalling;
 
 #if defined ATTRIBUTE_ENHANCEMENTS
 static DynamicHook g_DHookGetCustomProjectileModel;
 #endif
+
+static Address g_pGameMovement;
+static int iOffsetGameMovement_Player;
 
 void DHooks_Initialize()
 {	
@@ -33,17 +37,21 @@ void DHooks_Initialize()
 		DHooks_AddDynamicDetour(hGamedata, "CTFPlayerShared::StunPlayer", DHookCallback_StunPlayer_Pre);
 		DHooks_AddDynamicDetour(hGamedata, "CBaseObject::FindSnapToBuildPos", DHookCallback_FindSnapToBuildPos_Pre, DHookCallback_FindSnapToBuildPos_Post); //TODO: replace with FindBuildPointOnPlayer
 		DHooks_AddDynamicDetour(hGamedata, "CTFPlayer::IsAllowedToTaunt", DHookCallback_IsAllowedToTaunt_Pre);
+		DHooks_AddDynamicDetour(hGamedata, "CGameMovement::PlayerMove", DHookCallback_PlayerMove_Pre);
 		
 		g_DHookWeaponSound = DHooks_AddDynamicHook(hGamedata, "CBaseCombatWeapon::WeaponSound");
 		g_DHookIsDeflectable = DHooks_AddDynamicHook(hGamedata, "CBaseEntity::IsDeflectable");
 		g_DHookEvent_Killed = DHooks_AddDynamicHook(hGamedata, "CTFPlayer::Event_Killed");
 		g_DHookFireProjectile = DHooks_AddDynamicHook(hGamedata, "CTFWeaponBaseGun::FireProjectile");
 		g_DHookPerformCustomPhysics = DHooks_AddDynamicHook(hGamedata, "CBaseEntity::PerformCustomPhysics");
+		g_DHookCheckFalling = DHooks_AddDynamicHook(hGamedata, "CGameMovement::CheckFalling");
 		
 #if defined ATTRIBUTE_ENHANCEMENTS
 		g_DHookGetCustomProjectileModel = DHooks_AddDynamicHook(hGamedata, "CTFWeaponBaseGun::GetCustomProjectileModel");
 #endif
-				
+		
+		iOffsetGameMovement_Player = hGamedata.GetOffset("CGameMovement::player");
+		
 		delete hGamedata;
 	}
 	else
@@ -180,7 +188,7 @@ public void DHooksWeaponSpawnPost(int entity)
 
 static MRESReturn DHookCallback_ShouldHitEntity_Pre(Address pThis, DHookReturn hReturn, DHookParam hParams)
 {
-	int entity = DHookGetParam(hParams, 1);
+	int entity = DHookGetParam(hParams, 1); //The entity we're hitting
 	
 	//This retrieves the entity performing the trace
 	//Taken from owned_building_phasing
@@ -295,6 +303,22 @@ static MRESReturn DHookCallback_IsAllowedToTaunt_Pre(int pThis, DHookReturn hRet
 			hReturn.Value = true;
 			return MRES_Supercede;
 		}
+	}
+	
+	return MRES_Ignored;
+}
+
+static MRESReturn DHookCallback_PlayerMove_Pre(Address pThis)
+{
+	//This detour only serves one purpose, and it's to obtain the g_pGameMovement object in memory
+	//Ideally there is probably a better way, but this seemed like the easiest option for now
+	if (!g_pGameMovement)
+	{
+		g_pGameMovement = pThis;
+		
+		DHookRaw(g_DHookCheckFalling, false, g_pGameMovement, _, DHookCallback_CheckFalling_Pre);
+		
+		PrintToServer("[TF2 CUSTOM ATTRIBUTES] Setting raw data of g_pGameMovement");
 	}
 	
 	return MRES_Ignored;
@@ -429,10 +453,72 @@ static MRESReturn DHookCallback_PerformCustomPhysics_Pre(int pThis, DHookParam h
 	return MRES_Ignored;
 }
 
+static MRESReturn DHookCallback_CheckFalling_Pre(Address pThis)
+{
+	Address playerPtr = view_as<Address>(LoadFromAddress(pThis + view_as<Address>(iOffsetGameMovement_Player), NumberType_Int32));
+	int player = GetEntityFromAddress(playerPtr);
+	
+	float fall = GetEntPropFloat(player, Prop_Send, "m_flFallVelocity");
+	
+	if (Player_GetGroundEntity(player) != -1 && IsPlayerAlive(player) && fall > 0.0)
+	{
+		float fallMinVel = TF2Attrib_HookValueFloat(0.0, "kb_fall_min_velocity", player);
+		float kbRadius = TF2Attrib_HookValueFloat(0.0, "kb_fall_radius", player);
+		float kbStunTime = TF2Attrib_HookValueFloat(0.0, "kb_fall_stun_time", player);
+		float kbStrength = TF2Attrib_HookValueFloat(0.0, "kb_fall_force", player);
+		float kbDamage = TF2Attrib_HookValueFloat(0.0, "kb_fall_damage", player);
+		
+		if (fallMinVel != 0.0 && fall > fallMinVel)
+		{
+			if (kbRadius == 0.0)
+				kbRadius = 230.0;
+			
+			if (kbStunTime == 0.0)
+				kbStunTime = 5.0;
+			
+			if (kbStrength == 0.0)
+				kbStrength = 300.0;
+			
+			if (kbDamage == 0.0)
+				kbDamage = 50.0;
+			
+			float point[3]; GetClientAbsOrigin(player, point);
+			
+			for (int i = 1; i <= MaxClients; i++)
+			{
+				if (!IsClientInGame(i) || !IsPlayerAlive(i) || GetClientTeam(i) == GetClientTeam(player))
+					continue;
+				
+				float themEyePos[3]; GetClientEyePosition(i, themEyePos);
+				float toPlayer[3]; SubtractVectors(themEyePos, point, toPlayer);
+				
+				//This is literally a recreation of CTFGameRules::PushAllPlayersAway
+				if (GetVectorLength(toPlayer, true) < kbRadius * kbRadius)
+				{
+					toPlayer[2] = 0.0;
+					NormalizeVector(toPlayer, toPlayer);
+					toPlayer[2] = 1.0;
+					
+					float vPush[3]; vPush = toPlayer;
+					ScaleVector(vPush, kbStrength);
+					
+					VS_ApplyAbsVelocityImpulse(i, vPush);
+					SDKHooks_TakeDamage(i, player, player, kbDamage, DMG_FALL, -1, NULL_VECTOR, point);
+					
+					if (!IsMiniBoss(i) && kbStunTime > 0.0)
+						TF2_StunPlayer(i, kbStunTime, 0.85, 2, player);
+				}
+			}
+		}
+	}
+	
+	return MRES_Ignored;
+}
+
 #if defined ATTRIBUTE_ENHANCEMENTS
 static MRESReturn DHookCallback_GetCustomProjectileModel_Post(int pThis, DHookParam hParams)
 {
-	char model_path[256];	hParams.GetString(1, model_path, sizeof(model_path));
+	char model_path[256]; hParams.GetString(1, model_path, sizeof(model_path));
 	
 	// PrintToChatAll("GetCustomProjectileModel %s", model_path);
 	
