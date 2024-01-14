@@ -116,7 +116,7 @@ public Plugin myinfo =
 	name = "[TF2] Custom Item Schema Attributes",
 	author = "Officer Spy",
 	description = "Checks for extra attributes that were injected by another mod.",
-	version = "1.1.1",
+	version = "1.1.2",
 	url = ""
 };
 
@@ -289,7 +289,7 @@ bool PerformCustomPhysics(int ent, float pNewPosition[3], float pNewVelocity[3],
 		if (HR_followCrosshair[proj])
 		{
 			int owner = TF2_GetEntityOwner(proj);
-			if (IsValidEntity(owner))
+			if (owner != -1)
 			{
 				float ownerEyeAngles[3]; GetClientEyeAngles(owner, ownerEyeAngles);
 				float vForward[3]; GetAngleVectors(ownerEyeAngles, vForward, NULL_VECTOR, NULL_VECTOR);
@@ -374,7 +374,7 @@ bool PerformCustomPhysics(int ent, float pNewPosition[3], float pNewVelocity[3],
 			}
 		}
 		
-		if (!IsNullVector(target_vec))
+		if (!IsZeroVector(target_vec))
 		{
 			float angToTarget[3];
 			
@@ -395,6 +395,7 @@ bool PerformCustomPhysics(int ent, float pNewPosition[3], float pNewVelocity[3],
 		pNewAngVelocity[1] = (UTIL_ApproachAngle(HR_homedInAngle[proj][1], pNewAngles[1], HR_turnPower[proj] * GetGameFrameTime()) - pNewAngles[1]) * ticksPerSecond;
 		pNewAngVelocity[2] = (UTIL_ApproachAngle(HR_homedInAngle[proj][2], pNewAngles[2], HR_turnPower[proj] * GetGameFrameTime()) - pNewAngles[2]) * ticksPerSecond;
 	}
+	
 	if (time < HR_aimTIme[proj])
 	{
 		float vTemp[3];	vTemp = pNewAngVelocity;
@@ -783,4 +784,14 @@ stock void VS_ApplyAbsVelocityImpulse(int entity, float inVecImpulse[3])
 	
 	SetVariantString(buffer);
 	AcceptEntityInput(entity, "RunScriptCode");
+}
+
+stock void ZeroVector(float origin[3])
+{
+	origin = NULL_VECTOR;
+}
+
+stock bool IsZeroVector(float origin[3])
+{
+	return origin[0] == NULL_VECTOR[0] && origin[1] == NULL_VECTOR[1] && origin[2] == NULL_VECTOR[2];
 }
