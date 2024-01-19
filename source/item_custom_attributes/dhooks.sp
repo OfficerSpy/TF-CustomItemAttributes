@@ -33,7 +33,10 @@ void DHooks_Initialize()
 	GameData hGamedata = new GameData("tf2.customitemattribs");
 	if (hGamedata)
 	{
+#if defined EXPERIMENTAL_PERFORMANCE
 		DHooks_AddDynamicDetour(hGamedata, "CTraceFilterObject::ShouldHitEntity", DHookCallback_ShouldHitEntity_Pre);
+#endif
+		
 		DHooks_AddDynamicDetour(hGamedata, "CTFPlayerShared::StunPlayer", DHookCallback_StunPlayer_Pre);
 		DHooks_AddDynamicDetour(hGamedata, "CBaseObject::FindSnapToBuildPos", DHookCallback_FindSnapToBuildPos_Pre, DHookCallback_FindSnapToBuildPos_Post); //TODO: replace with FindBuildPointOnPlayer
 		DHooks_AddDynamicDetour(hGamedata, "CTFPlayer::IsAllowedToTaunt", DHookCallback_IsAllowedToTaunt_Pre);
@@ -186,6 +189,7 @@ public void DHooksWeaponSpawnPost(int entity)
 	}
 }
 
+#if defined EXPERIMENTAL_PERFORMANCE
 static MRESReturn DHookCallback_ShouldHitEntity_Pre(Address pThis, DHookReturn hReturn, DHookParam hParams)
 {
 	int entity = DHookGetParam(hParams, 1); //The entity we're hitting
@@ -230,6 +234,7 @@ static MRESReturn DHookCallback_ShouldHitEntity_Pre(Address pThis, DHookReturn h
 	
 	return MRES_Ignored;
 }
+#endif //EXPERIMENTAL_PERFORMANCE
 
 static MRESReturn DHookCallback_StunPlayer_Pre(Address pThis, DHookParam hParams)
 {

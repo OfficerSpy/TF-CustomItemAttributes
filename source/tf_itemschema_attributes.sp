@@ -16,6 +16,8 @@
 #define ATTRIBUTE_ENHANCEMENTS
 // #define JOINBLU_BUSTER_ROBOT
 
+// #define EXPERIMENTAL_PERFORMANCE
+
 enum //WeaponSound_t
 {
 	EMPTY,
