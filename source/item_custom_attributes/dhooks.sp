@@ -323,7 +323,7 @@ static MRESReturn DHookCallback_PlayerMove_Pre(Address pThis)
 		
 		DHookRaw(g_DHookCheckFalling, false, g_pGameMovement, _, DHookCallback_CheckFalling_Pre);
 		
-		PrintToServer("[TF2 CUSTOM ATTRIBUTES] Setting raw data of g_pGameMovement");
+		LogMessage("DHookCallback_PlayerMove_Pre: setting raw data of g_pGameMovement");
 	}
 	
 	return MRES_Ignored;
@@ -435,10 +435,10 @@ static MRESReturn DHookCallback_PerformCustomPhysics_Pre(int pThis, DHookParam h
 {
 	float newPosition[3], newVelocity[3], newAngles[3], newAngVelocity[3];
 	
-	// hParams.GetVector(1, newPosition);
-	// hParams.GetVector(2, newVelocity);
-	// hParams.GetVector(3, newAngles);
-	// hParams.GetVector(4, newAngVelocity);
+	hParams.GetVector(1, newPosition);
+	hParams.GetVector(2, newVelocity);
+	hParams.GetVector(3, newAngles);
+	hParams.GetVector(4, newAngVelocity);
 	
 	if (PerformCustomPhysics(pThis, newPosition, newVelocity, newAngles, newAngVelocity))
 	{
@@ -447,10 +447,10 @@ static MRESReturn DHookCallback_PerformCustomPhysics_Pre(int pThis, DHookParam h
 		hParams.SetVector(3, newAngles);
 		hParams.SetVector(4, newAngVelocity);
 		
-		PrintToChatAll("newPosition %.2f %.2f %.2f", newPosition[0], newPosition[1], newPosition[2]);
+		/* PrintToChatAll("newPosition %.2f %.2f %.2f", newPosition[0], newPosition[1], newPosition[2]);
 		PrintToChatAll("newVelocity %.2f %.2f %.2f", newVelocity[0], newVelocity[1], newVelocity[2]);
 		PrintToChatAll("newAngles %.2f %.2f %.2f", newAngles[0], newAngles[1], newAngles[2]);
-		PrintToChatAll("newAngVelocity %.2f %.2f %.2f", newAngVelocity[0], newAngVelocity[1], newAngVelocity[2]);
+		PrintToChatAll("newAngVelocity %.2f %.2f %.2f", newAngVelocity[0], newAngVelocity[1], newAngVelocity[2]); */
 		
 		return MRES_ChangedHandled;
 	}

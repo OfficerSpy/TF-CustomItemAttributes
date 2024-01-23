@@ -118,7 +118,7 @@ public Plugin myinfo =
 	name = "[TF2] Custom Item Schema Attributes",
 	author = "Officer Spy",
 	description = "Checks for extra attributes that were injected by another mod.",
-	version = "1.1.2",
+	version = "1.1.3",
 	url = ""
 };
 
@@ -286,7 +286,7 @@ bool PerformCustomPhysics(int ent, float pNewPosition[3], float pNewVelocity[3],
 	
 	if (HR_turnPower[proj] != 0.0 && time >= HR_aimStartTime[proj] && time < HR_aimTIme[proj] && GetGameTickCount() % RoundToCeil(interval / GetTickInterval()) == 0)
 	{
-		float target_vec[3];
+		float target_vec[3]; target_vec = NULL_VECTOR;
 		
 		if (HR_followCrosshair[proj])
 		{
@@ -301,7 +301,7 @@ bool PerformCustomPhysics(int ent, float pNewPosition[3], float pNewVelocity[3],
 				vTemp[1] = vTemp[1] + 4000.0 * vForward[1];
 				vTemp[2] = vTemp[2] + 4000.0 * vForward[2];
 				
-				Handle trace = TR_TraceRayFilterEx(GetEyePosition(owner), vTemp, MASK_SHOT, RayType_EndPoint, TraceFilterIgnoreFriendlyCombatItems, owner);
+				Handle trace = TR_TraceRayFilterEx(GetEyePosition(owner), vTemp, MASK_SHOT, RayType_EndPoint, Filter_IgnoreFriendlyCombatItems, owner);
 				
 				TR_GetEndPosition(target_vec, trace);
 				
@@ -347,7 +347,7 @@ bool PerformCustomPhysics(int ent, float pNewPosition[3], float pNewVelocity[3],
 				
 				if (dotproduct > target_dotproduct)
 				{
-					Handle trace = TR_TraceRayEx(WorldSpaceCenter(i), WorldSpaceCenter(proj), MASK_SOLID_BRUSHONLY, RayType_EndPoint);
+					Handle trace = TR_TraceRayFilterEx(WorldSpaceCenter(i), WorldSpaceCenter(proj), MASK_SOLID_BRUSHONLY, RayType_EndPoint, Filter_IgnoreExcluded, i);
 					
 					if (!TR_DidHit(trace) || TR_GetEntityIndex(trace) == proj)
 					{
@@ -423,7 +423,7 @@ bool PerformCustomPhysics(int ent, float pNewPosition[3], float pNewVelocity[3],
 	return true;
 }
 
-public bool TraceFilterIgnoreFriendlyCombatItems(int entity, int contentsMask, any data)
+public bool Filter_IgnoreFriendlyCombatItems(int entity, int contentsMask, any data)
 {
 	char classname[64];	GetEntityClassname(entity, classname, sizeof(classname));
 	
@@ -435,6 +435,11 @@ public bool TraceFilterIgnoreFriendlyCombatItems(int entity, int contentsMask, a
 		//m_bNoChain check but we don't care about it
 	}
 	
+	return !(entity == data);
+}
+
+public bool Filter_IgnoreExcluded(int entity, int contentsMask, any data)
+{
 	return !(entity == data);
 }
 
@@ -796,4 +801,9 @@ stock void ZeroVector(float origin[3])
 stock bool IsZeroVector(float origin[3])
 {
 	return origin[0] == NULL_VECTOR[0] && origin[1] == NULL_VECTOR[1] && origin[2] == NULL_VECTOR[2];
+}
+
+stock bool IsEntityAPlayer(int entity)
+{
+	return entity > 0 && entity <= MaxClients;
 }
