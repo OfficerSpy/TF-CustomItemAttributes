@@ -323,7 +323,7 @@ static MRESReturn DHookCallback_PlayerMove_Pre(Address pThis)
 		
 		DHookRaw(g_DHookCheckFalling, false, g_pGameMovement, _, DHookCallback_CheckFalling_Pre);
 		
-		LogMessage("DHookCallback_PlayerMove_Pre: setting raw data of g_pGameMovement");
+		LogMessage("Setting raw data of g_pGameMovement (0x%X)", g_pGameMovement);
 	}
 	
 	return MRES_Ignored;
@@ -345,11 +345,11 @@ static MRESReturn DHookCallback_WeaponSound_Pre(int pThis, DHookParam hParams)
 		
 		if (strlen(sound) > 0)
 		{
-			// int owner = TF2_GetEntityOwner(pThis);
+			int owner = TF2_GetEntityOwner(pThis);
 			float soundtime = hParams.Get(2);
 			
 			PrecacheSound(sound);
-			EmitSoundToAll(sound, _, _, _, _, _, _, _, _, _, _, soundtime);
+			BaseEntity_EmitSound(owner, sound, soundtime);
 			
 			return MRES_Supercede;
 		}

@@ -118,7 +118,7 @@ public Plugin myinfo =
 	name = "[TF2] Custom Item Schema Attributes",
 	author = "Officer Spy",
 	description = "Checks for extra attributes that were injected by another mod.",
-	version = "1.1.3",
+	version = "1.1.4",
 	url = ""
 };
 
@@ -252,18 +252,19 @@ void CustomlyModifyLaunchedProjectile(int weapon, int projectile, bool isNativeS
 	if (strlen(soundName) > 0)
 	{
 		PrecacheSound(soundName);
-		EmitSoundToAll(soundName);
+		BaseEntity_EmitSound(projectile, soundName);
 	}
 }
 
 //TODO: maybe implement CTakeDamageInfo into here at some point?
 void ApplyOnHitAttributes(int weapon, int victim, int attacker, float damage)
 {
-	char str[128];	TF2Attrib_HookValueString("", "custom_hit_sound", weapon, str, sizeof(str));
-	if (strlen(str) > 0)
+	char soundName[128]; TF2Attrib_HookValueString("", "custom_hit_sound", weapon, soundName, sizeof(soundName));
+	
+	if (strlen(soundName) > 0)
 	{
-		PrecacheSound(str);
-		EmitSoundToAll(str);
+		PrecacheSound(soundName);
+		BaseEntity_EmitSound(victim, soundName);
 	}
 }
 
@@ -301,7 +302,7 @@ bool PerformCustomPhysics(int ent, float pNewPosition[3], float pNewVelocity[3],
 				vTemp[1] = vTemp[1] + 4000.0 * vForward[1];
 				vTemp[2] = vTemp[2] + 4000.0 * vForward[2];
 				
-				Handle trace = TR_TraceRayFilterEx(GetEyePosition(owner), vTemp, MASK_SHOT, RayType_EndPoint, Filter_IgnoreFriendlyCombatItems, owner);
+				Handle trace = TR_TraceRayFilterEx(GetEyePosition(owner), vTemp, MASK_SHOT, RayType_EndPoint, TraceFilterIgnoreFriendlyCombatItems, owner);
 				
 				TR_GetEndPosition(target_vec, trace);
 				
@@ -347,9 +348,14 @@ bool PerformCustomPhysics(int ent, float pNewPosition[3], float pNewVelocity[3],
 				
 				if (dotproduct > target_dotproduct)
 				{
-					Handle trace = TR_TraceRayFilterEx(WorldSpaceCenter(i), WorldSpaceCenter(proj), MASK_SOLID_BRUSHONLY, RayType_EndPoint, Filter_IgnoreExcluded, i);
+					bool noclip = GetEntityMoveType(proj) == MOVETYPE_NOCLIP;
 					
-					if (!TR_DidHit(trace) || TR_GetEntityIndex(trace) == proj)
+					Handle trace;
+					
+					if (!noclip)
+						trace = TR_TraceRayFilterEx(WorldSpaceCenter(i), WorldSpaceCenter(proj), MASK_SOLID_BRUSHONLY, RayType_EndPoint, Filter_IgnoreData, i);
+					
+					if (noclip || !TR_DidHit(trace) || TR_GetEntityIndex(trace) == proj)
 					{
 						target_player = i;
 						target_dotproduct = dotproduct;
@@ -423,7 +429,7 @@ bool PerformCustomPhysics(int ent, float pNewPosition[3], float pNewVelocity[3],
 	return true;
 }
 
-public bool Filter_IgnoreFriendlyCombatItems(int entity, int contentsMask, any data)
+public bool TraceFilterIgnoreFriendlyCombatItems(int entity, int contentsMask, any data)
 {
 	char classname[64];	GetEntityClassname(entity, classname, sizeof(classname));
 	
@@ -438,9 +444,9 @@ public bool Filter_IgnoreFriendlyCombatItems(int entity, int contentsMask, any d
 	return !(entity == data);
 }
 
-public bool Filter_IgnoreExcluded(int entity, int contentsMask, any data)
+public bool Filter_IgnoreData(int entity, int contentsMask, any data)
 {
-	return !(entity == data);
+	return entity != data;
 }
 
 stock bool IsValidClientIndex(int client)
@@ -806,4 +812,17 @@ stock bool IsZeroVector(float origin[3])
 stock bool IsEntityAPlayer(int entity)
 {
 	return entity > 0 && entity <= MaxClients;
+}
+
+stock void VS_EmitSound(int entity, char[] soundName)
+{
+	char buffer[PLATFORM_MAX_PATH]; Format(buffer, sizeof(buffer), "self.EmitSound(\"%s\")", soundName);
+	
+	SetVariantString(buffer);
+	AcceptEntityInput(entity, "RunScriptCode");
+}
+
+stock void BaseEntity_EmitSound(int entity, const char[] soundname, float soundtime = 0.0)
+{
+	EmitSoundToAll(soundname, entity, SNDCHAN_AUTO, SNDLEVEL_NONE, SND_NOFLAGS, SNDVOL_NORMAL, SNDPITCH_NORMAL, -1, NULL_VECTOR, NULL_VECTOR, true, soundtime);
 }
