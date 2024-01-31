@@ -53,9 +53,9 @@ public void ProjectileSpawnPost(int entity)
 				HR_acceleration[entity] = acceleration;
 				HR_gravity[entity] = gravity;
 				
-				PrintToChatAll("turnPower %.2f", turnPower);
-				PrintToChatAll("acceleration %.2f", acceleration);
-				PrintToChatAll("gravity %.2f", gravity);
+				// PrintToChatAll("turnPower %.2f", turnPower);
+				// PrintToChatAll("acceleration %.2f", acceleration);
+				// PrintToChatAll("gravity %.2f", gravity);
 				
 				SetEntityMoveType(entity, MOVETYPE_CUSTOM);
 				

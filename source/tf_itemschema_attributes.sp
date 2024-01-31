@@ -822,7 +822,27 @@ stock void VS_EmitSound(int entity, char[] soundName)
 	AcceptEntityInput(entity, "RunScriptCode");
 }
 
-stock void BaseEntity_EmitSound(int entity, const char[] soundname, float soundtime = 0.0)
+stock void BaseEntity_EmitSound(int entity, char[] soundname, float soundtime = 0.0)
 {
-	EmitSoundToAll(soundname, entity, SNDCHAN_AUTO, SNDLEVEL_NONE, SND_NOFLAGS, SNDVOL_NORMAL, SNDPITCH_NORMAL, -1, NULL_VECTOR, NULL_VECTOR, true, soundtime);
+	float volume = SNDVOL_NORMAL;
+	
+	int foundIndex = FindCharInString(soundname, '|');
+	
+	if (foundIndex != -1)
+	{
+		char prefix[5];
+		
+		SplitString(soundname, "|", prefix, sizeof(prefix));
+		ReplaceString(prefix, sizeof(prefix), "=", "");
+		
+		volume = StringToFloat(prefix);
+		volume /= 100.0;
+		
+		//NOTE: pretty sure there's a better way to do this...
+		strcopy(soundname, PLATFORM_MAX_PATH, soundname[foundIndex + 1]);
+	}
+	
+	//Try soundscript first, otherwise emit raw sound file
+	if (!EmitGameSoundToAll(soundname, entity, SND_NOFLAGS, -1, NULL_VECTOR, NULL_VECTOR, false, soundtime))
+		EmitSoundToAll(soundname, entity, SNDCHAN_AUTO, SNDLEVEL_NONE, SND_NOFLAGS, volume, SNDPITCH_NORMAL, -1, NULL_VECTOR, NULL_VECTOR, true, soundtime);
 }
