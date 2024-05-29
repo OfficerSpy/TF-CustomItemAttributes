@@ -118,22 +118,40 @@ public Plugin myinfo =
 	name = "[TF2] Custom Item Schema Attributes",
 	author = "Officer Spy",
 	description = "Checks for extra attributes that were injected by another mod.",
-	version = "1.1.4",
+	version = "1.1.5",
 	url = ""
 };
 
 public void OnPluginStart()
 {
-	sv_stepsize = FindConVar("sv_stepsize");
-	
 	HookGameEvents();
-	SetupSDKCalls();
-	DHooks_Initialize();
+	
+	GameData gd = new GameData("tf2.customitemattribs");
+	
+	if (gd)
+	{
+		bool bFailed = false;
+		
+		if (!InitSDKCalls(gd))
+			bFailed = true;
+		
+		if (!InitDHooks(gd))
+			bFailed = true;
+		
+		delete gd;
+		
+		if (bFailed)
+			SetFailState("Gamedata failed!");
+	}
+	else
+	{
+		SetFailState("Failed to load gamedata file tf2.customitemattribs.txt");
+	}
 }
 
 public void OnConfigsExecuted()
 {
-	DHooks_Toggle(true);
+	sv_stepsize = FindConVar("sv_stepsize");
 }
 
 public void OnEntityCreated(int entity, const char[] classname)

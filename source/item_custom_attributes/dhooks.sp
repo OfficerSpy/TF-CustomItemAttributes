@@ -1,190 +1,101 @@
-//I really should stop using this structure
-//But I love it soo much
-
-enum struct DetourData
-{
-	DynamicDetour detour;
-	DHookCallback callbackPre;
-	DHookCallback callbackPost;
-}
-
-static ArrayList g_DynamicDetours;
-static ArrayList g_DynamicHookIds;
-
-static DynamicHook g_DHookWeaponSound;
-static DynamicHook g_DHookIsDeflectable;
-static DynamicHook g_DHookEvent_Killed;
-static DynamicHook g_DHookFireProjectile;
-static DynamicHook g_DHookPerformCustomPhysics;
-static DynamicHook g_DHookCheckFalling;
+static DynamicHook m_hWeaponSound;
+static DynamicHook m_hIsDeflectable;
+static DynamicHook m_hEvent_Killed;
+static DynamicHook m_hFireProjectile;
+static DynamicHook m_hPerformCustomPhysics;
+static DynamicHook m_hCheckFalling;
 
 #if defined ATTRIBUTE_ENHANCEMENTS
-static DynamicHook g_DHookGetCustomProjectileModel;
+static DynamicHook m_hGetCustomProjectileModel;
 #endif
 
-static Address g_pGameMovement;
-static int iOffsetGameMovement_Player;
+static Address m_pGameMovement;
+static int m_iOffsetGameMovement_Player;
 
-void DHooks_Initialize()
-{	
-	g_DynamicDetours = new ArrayList(sizeof(DetourData));
-	g_DynamicHookIds = new ArrayList();
+bool InitDHooks(GameData hGamedata)
+{
+	int failCount = 0;
 	
-	GameData hGamedata = new GameData("tf2.customitemattribs");
-	if (hGamedata)
-	{
 #if defined EXPERIMENTAL_PERFORMANCE
-		DHooks_AddDynamicDetour(hGamedata, "CTraceFilterObject::ShouldHitEntity", DHookCallback_ShouldHitEntity_Pre);
+	if (!RegisterDetour(hGamedata, "CTraceFilterObject::ShouldHitEntity", DHookCallback_ShouldHitEntity_Pre))
+		failCount++;
 #endif
-		
-		DHooks_AddDynamicDetour(hGamedata, "CTFPlayerShared::StunPlayer", DHookCallback_StunPlayer_Pre);
-		DHooks_AddDynamicDetour(hGamedata, "CBaseObject::FindSnapToBuildPos", DHookCallback_FindSnapToBuildPos_Pre, DHookCallback_FindSnapToBuildPos_Post); //TODO: replace with FindBuildPointOnPlayer
-		DHooks_AddDynamicDetour(hGamedata, "CTFPlayer::IsAllowedToTaunt", DHookCallback_IsAllowedToTaunt_Pre);
-		DHooks_AddDynamicDetour(hGamedata, "CGameMovement::PlayerMove", DHookCallback_PlayerMove_Pre);
-		
-		g_DHookWeaponSound = DHooks_AddDynamicHook(hGamedata, "CBaseCombatWeapon::WeaponSound");
-		g_DHookIsDeflectable = DHooks_AddDynamicHook(hGamedata, "CBaseEntity::IsDeflectable");
-		g_DHookEvent_Killed = DHooks_AddDynamicHook(hGamedata, "CTFPlayer::Event_Killed");
-		g_DHookFireProjectile = DHooks_AddDynamicHook(hGamedata, "CTFWeaponBaseGun::FireProjectile");
-		g_DHookPerformCustomPhysics = DHooks_AddDynamicHook(hGamedata, "CBaseEntity::PerformCustomPhysics");
-		g_DHookCheckFalling = DHooks_AddDynamicHook(hGamedata, "CGameMovement::CheckFalling");
-		
+	
+	if (!RegisterDetour(hGamedata, "CTFPlayerShared::StunPlayer", DHookCallback_StunPlayer_Pre))
+		failCount++;
+	
+	//TODO: replace with FindBuildPointOnPlayer
+	if (!RegisterDetour(hGamedata, "CBaseObject::FindSnapToBuildPos", DHookCallback_FindSnapToBuildPos_Pre, DHookCallback_FindSnapToBuildPos_Post))
+		failCount++;
+	
+	if (!RegisterDetour(hGamedata, "CTFPlayer::IsAllowedToTaunt", DHookCallback_IsAllowedToTaunt_Pre))
+		failCount++;
+	
+	if (!RegisterDetour(hGamedata, "CGameMovement::PlayerMove", DHookCallback_PlayerMove_Pre))
+		failCount++;
+	
+	if (!RegisterHook(hGamedata, m_hWeaponSound, "CBaseCombatWeapon::WeaponSound"))
+		failCount++;
+	
+	if (!RegisterHook(hGamedata, m_hIsDeflectable, "CBaseEntity::IsDeflectable"))
+		failCount++;
+	
+	if (!RegisterHook(hGamedata, m_hEvent_Killed, "CTFPlayer::Event_Killed"))
+		failCount++;
+	
+	if (!RegisterHook(hGamedata, m_hFireProjectile, "CTFWeaponBaseGun::FireProjectile"))
+		failCount++;
+	
+	if (!RegisterHook(hGamedata, m_hPerformCustomPhysics, "CBaseEntity::PerformCustomPhysics"))
+		failCount++;
+	
+	if (!RegisterHook(hGamedata, m_hCheckFalling, "CGameMovement::CheckFalling"))
+		failCount++;
+	
 #if defined ATTRIBUTE_ENHANCEMENTS
-		g_DHookGetCustomProjectileModel = DHooks_AddDynamicHook(hGamedata, "CTFWeaponBaseGun::GetCustomProjectileModel");
+	if (!RegisterHook(hGamedata, m_hGetCustomProjectileModel, "CTFWeaponBaseGun::GetCustomProjectileModel"))
+		failCount++;
 #endif
-		
-		iOffsetGameMovement_Player = hGamedata.GetOffset("CGameMovement::player");
-		
-		delete hGamedata;
-	}
-	else
+	
+	m_iOffsetGameMovement_Player = hGamedata.GetOffset("CGameMovement::player");
+	
+	if (failCount > 0)
 	{
-		SetFailState("Could not find tf2.customitemattribs gamedata!");
-	}
-}
-
-static DynamicHook DHooks_AddDynamicHook(GameData gamedata, const char[] name)
-{
-	DynamicHook hook = DynamicHook.FromConf(gamedata, name);
-	if (!hook)
-	{
-		LogError("Failed to create hook setup handle for %s", name);
+		LogError("InitDHooks: found %d problems with gamedata!", failCount);
+		return false;
 	}
 	
-	return hook;
-}
-
-static void DHooks_HookEntity(DynamicHook hook, HookMode mode, int entity, DHookCallback callback)
-{
-	if (hook)
-	{
-		int hookid = hook.HookEntity(mode, entity, callback, DHookRemovalCB_OnHookRemoved);
-		if (hookid != INVALID_HOOK_ID)
-		{
-			g_DynamicHookIds.Push(hookid);
-		}
-	}
-}
-
-public void DHookRemovalCB_OnHookRemoved(int hookid)
-{
-	int index = g_DynamicHookIds.FindValue(hookid);
-	if (index != -1)
-	{
-		g_DynamicHookIds.Erase(index);
-	}
-}
-
-static void DHooks_AddDynamicDetour(GameData gamedata, const char[] name, DHookCallback callbackPre = INVALID_FUNCTION, DHookCallback callbackPost = INVALID_FUNCTION)
-{
-	DynamicDetour detour = DynamicDetour.FromConf(gamedata, name);
-	if (detour)
-	{
-		DetourData data;
-		data.detour = detour;
-		data.callbackPre = callbackPre;
-		data.callbackPost = callbackPost;
-		
-		g_DynamicDetours.PushArray(data);
-	}
-	else
-	{
-		LogError("Failed to create detour setup handle for %s", name);
-	}
-}
-
-void DHooks_Toggle(bool enable)
-{
-	for (int i = 0; i < g_DynamicDetours.Length; i++)
-	{
-		DetourData data;
-		if (g_DynamicDetours.GetArray(i, data))
-		{
-			if (data.callbackPre != INVALID_FUNCTION)
-			{
-				if (enable)
-				{
-					data.detour.Enable(Hook_Pre, data.callbackPre);
-				}
-				else
-				{
-					data.detour.Disable(Hook_Pre, data.callbackPre);
-				}
-			}
-			
-			if (data.callbackPost != INVALID_FUNCTION)
-			{
-				if (enable)
-				{
-					data.detour.Enable(Hook_Post, data.callbackPost);
-				}
-				else
-				{
-					data.detour.Disable(Hook_Post, data.callbackPost);
-				}
-			}
-		}
-	}
-	
-	if (!enable)
-	{
-		//Remove virtual hooks
-		for (int i = g_DynamicHookIds.Length - 1; i >= 0; i--)
-		{
-			int hookid = g_DynamicHookIds.Get(i);
-			DynamicHook.RemoveHook(hookid);
-		}
-	}
+	return true;
 }
 
 void DHooks_OnEntityCreated(int entity, const char[] classname)
 {
 	if (StrContains(classname, "tf_weapon") != -1)
 	{
-		SDKHook(entity, SDKHook_SpawnPost, DHooksWeaponSpawnPost);
-		DHooks_HookEntity(g_DHookWeaponSound, Hook_Pre, entity, DHookCallback_WeaponSound_Pre);
+		SDKHook(entity, SDKHook_SpawnPost, Weapon_SpawnPost);
+		m_hWeaponSound.HookEntity(Hook_Pre, entity, DHookCallback_WeaponSound_Pre);
 	}
 	
 	if (StrContains(classname, "tf_projectile") != -1)
 	{
-		DHooks_HookEntity(g_DHookIsDeflectable, Hook_Pre, entity, DHookCallback_IsDeflectable_Pre);
-		DHooks_HookEntity(g_DHookPerformCustomPhysics, Hook_Pre, entity, DHookCallback_PerformCustomPhysics_Pre);
+		m_hIsDeflectable.HookEntity(Hook_Pre, entity, DHookCallback_IsDeflectable_Pre);
+		m_hPerformCustomPhysics.HookEntity(Hook_Pre, entity, DHookCallback_PerformCustomPhysics_Pre);
 	}
 }
 
 void DHooks_OnClientPutInServer(int client)
 {
-	DHooks_HookEntity(g_DHookEvent_Killed, Hook_Pre, client, DHookCallback_EventKilled_Pre);
+	m_hEvent_Killed.HookEntity(Hook_Pre, client, DHookCallback_EventKilled_Pre);
 }
 
-public void DHooksWeaponSpawnPost(int entity)
+static void Weapon_SpawnPost(int entity)
 {
 	if (IsWeaponBaseGun(entity))
 	{
-		DHooks_HookEntity(g_DHookFireProjectile, Hook_Post, entity, DHookCallback_FireProjectile_Post);
+		m_hFireProjectile.HookEntity(Hook_Post, entity, DHookCallback_FireProjectile_Post);
 		
 #if defined ATTRIBUTE_ENHANCEMENTS
-		DHooks_HookEntity(g_DHookGetCustomProjectileModel, Hook_Post, entity, DHookCallback_GetCustomProjectileModel_Post);
+		m_hGetCustomProjectileModel.HookEntity(Hook_Post, entity, DHookCallback_GetCustomProjectileModel_Post);
 #endif
 	}
 }
@@ -317,13 +228,11 @@ static MRESReturn DHookCallback_PlayerMove_Pre(Address pThis)
 {
 	//This detour only serves one purpose, and it's to obtain the g_pGameMovement object in memory
 	//Ideally there is probably a better way, but this seemed like the easiest option for now
-	if (!g_pGameMovement)
+	if (!m_pGameMovement)
 	{
-		g_pGameMovement = pThis;
-		
-		DHookRaw(g_DHookCheckFalling, false, g_pGameMovement, _, DHookCallback_CheckFalling_Pre);
-		
-		LogMessage("Setting raw data of g_pGameMovement (0x%X)", g_pGameMovement);
+		m_pGameMovement = pThis;
+		DHookRaw(m_hCheckFalling, false, m_pGameMovement, _, DHookCallback_CheckFalling_Pre);
+		LogMessage("DHookCallback_PlayerMove_Pre: Found \"g_pGameMovement\" (0x%X)", m_pGameMovement);
 	}
 	
 	return MRES_Ignored;
@@ -460,7 +369,7 @@ static MRESReturn DHookCallback_PerformCustomPhysics_Pre(int pThis, DHookParam h
 
 static MRESReturn DHookCallback_CheckFalling_Pre(Address pThis)
 {
-	Address playerPtr = view_as<Address>(LoadFromAddress(pThis + view_as<Address>(iOffsetGameMovement_Player), NumberType_Int32));
+	Address playerPtr = view_as<Address>(LoadFromAddress(pThis + view_as<Address>(m_iOffsetGameMovement_Player), NumberType_Int32));
 	int player = GetEntityFromAddress(playerPtr);
 	
 	float fall = GetEntPropFloat(player, Prop_Send, "m_flFallVelocity");
@@ -535,3 +444,42 @@ static MRESReturn DHookCallback_GetCustomProjectileModel_Post(int pThis, DHookPa
 	return MRES_Ignored;
 }
 #endif
+
+static bool RegisterDetour(GameData gd, const char[] fnName, DHookCallback pre = INVALID_FUNCTION, DHookCallback post = INVALID_FUNCTION)
+{
+	DynamicDetour hDetour;
+	hDetour = DynamicDetour.FromConf(gd, fnName);
+	
+	if (hDetour)
+	{
+		if (pre != INVALID_FUNCTION)
+			hDetour.Enable(Hook_Pre, pre);
+		
+		if (post != INVALID_FUNCTION)
+			hDetour.Enable(Hook_Post, post);
+	}
+	else
+	{
+		delete hDetour;
+		LogError("Failed to detour \"%s\"!", fnName);
+		
+		return false;
+	}
+	
+	delete hDetour;
+	
+	return true;
+}
+
+static bool RegisterHook(GameData gd, DynamicHook &hook, const char[] fnName)
+{
+	hook = DynamicHook.FromConf(gd, fnName);
+	
+	if (hook == null)
+	{
+		LogError("Failed to setup DynamicHook for \"%s\"!", fnName);
+		return false;
+	}
+	
+	return true;
+}
