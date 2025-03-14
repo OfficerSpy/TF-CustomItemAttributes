@@ -1,12 +1,12 @@
 //CTFGameRules::ApplyOnDamageModifyRules happens in CTFPlayer::OnTakeDamage
 //This callback should happen after its rules have already been applied
-public Action PlayerOnTakeDamage(int victim, int& attacker, int& inflictor, float& damage, int& damagetype, int& weapon, float damageForce[3], float damagePosition[3], int damagecustom)
+public Action Player_OnTakeDamage(int victim, int& attacker, int& inflictor, float& damage, int& damagetype, int& weapon, float damageForce[3], float damagePosition[3], int damagecustom)
 {
 	bool bChanged = false;
 	
-	if (IsValidClientIndex(attacker))
+	if (BaseEntity_IsPlayer(attacker))
 	{
-		if (IsValidEntity(weapon))
+		if (weapon > 0)
 		{
 			float dmgMult = 1.0;
 			
@@ -28,7 +28,7 @@ public Action PlayerOnTakeDamage(int victim, int& attacker, int& inflictor, floa
 
 //TODO: ApplyOnHitAttributes in base object take damage
 
-public void ProjectileSpawnPost(int entity)
+public void BaseProjectile_SpawnPost(int entity)
 {
 	int weapon = GetProjectileOriginalLauncher(entity);
 	
@@ -37,7 +37,7 @@ public void ProjectileSpawnPost(int entity)
 	int launcher;
 	
 	if (weapon > 0)
-		launcher = TF2_GetEntityOwner(weapon);
+		launcher = BaseEntity_GetOwnerEntity(weapon);
 	
 	if (launcher > 0)
 	{
