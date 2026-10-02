@@ -100,13 +100,15 @@ void CheckHomingRockets(int proj)
 				if (acceleration_start != 0.0)
 					g_arrHoming[proj].acceleration_start = acceleration_start;
 				
-				float follow_crosshair = TF2Attrib_HookValueInt(0, "mod_projectile_heat_follow_crosshair", provider);
+				int follow_crosshair = TF2Attrib_HookValueInt(0, "mod_projectile_heat_follow_crosshair", provider);
 				if (follow_crosshair != 0)
 					g_arrHoming[proj].follow_crosshair = true;
 				
-				float no_predict_target_speed = TF2Attrib_HookValueInt(0, "mod_projectile_heat_no_predict_target_speed", provider);
+#if 0
+				int no_predict_target_speed = TF2Attrib_HookValueInt(0, "mod_projectile_heat_no_predict_target_speed", provider);
 				if (follow_crosshair != 0)
 					g_arrHoming[proj].predict_target_speed = false;
+#endif
 				
 				g_arrHoming[proj].speed = weapon != -1 ? CalculateProjectileSpeed(weapon) : 1100.0;
 				
@@ -133,7 +135,7 @@ bool PerformCustomPhysics(int ent, float pNewPosition[3], float pNewVelocity[3],
 	if (speed_calculated < 0.0 && g_arrHoming[ent].return_to_sender && !g_arrHoming[ent].returning)
 	{
 		g_arrHoming[ent].returning = true;
-		g_arrHoming[ent].speed = 0;
+		g_arrHoming[ent].speed = 0.0;
 		g_arrHoming[ent].acceleration = -g_arrHoming[ent].acceleration;
 		g_arrHoming[ent].acceleration_start = time;
 	}
@@ -167,144 +169,143 @@ bool PerformCustomPhysics(int ent, float pNewPosition[3], float pNewVelocity[3],
 				
 				TR_GetEndPosition(target_vec);
 			}
-			else
-			{
-				float target_dotproduct = FLT_MIN;
-				int target_player = -1;
-				
-				for (int i = 1; i <= MaxClients; i++)
-				{
-					if (!IsClientInGame(i))
-						continue;
-					
-					if (!IsPlayerAlive(i))
-						continue;
-					
-					if (TF2_GetClientTeam(i) == TFTeam_Spectator)
-						continue;
-					
-					if (GetClientTeam(i) == BaseEntity_GetTeamNumber(ent))
-						continue;
-					
-					if (g_arrHoming[ent].ignore_disguised_spies)
-					{
-						if (TF2_IsPlayerInCondition(i, TFCond_Disguised) && TF2_GetDisguiseTeam(i) == BaseEntity_GetTeamNumber(ent))
-						{
-							//Ignore players disguised as our team
-							continue;
-						}
-					}
-					
-					if (g_arrHoming[ent].ignore_stealthed_spies)
-					{
-						if (TF2_IsStealthed(i) && TF2_GetPercentInvisible(i) >= 0.75 && !TF2_IsPlayerInCondition(i, TFCond_CloakFlicker) && !TF2_IsPlayerInCondition(i, TFCond_OnFire) && !TF2_IsPlayerInCondition(i, TFCond_Jarated) && !TF2_IsPlayerInCondition(i, TFCond_Bleeding))
-						{
-							//Ignore stealthed players that are not exposed
-							continue;
-						}
-					}
-					
-					float delta[3];
-					float vecPlayerWSC[3]; CBaseEntity(i).WorldSpaceCenter(vecPlayerWSC);
-					float vecProjWSC[3]; CBaseEntity(ent).WorldSpaceCenter(vecProjWSC);
-					SubtractVectors(vecPlayerWSC, vecProjWSC, delta);
-					
-					float mindotproduct = g_arrHoming[ent].min_dot_product;
-					float dotproduct = GetVectorDotProduct(Vector_Normalized(delta), Vector_Normalized(pNewVelocity));
-					
-					if (dotproduct < mindotproduct)
-						continue;
-					
-					if (dotproduct > target_dotproduct)
-					{
-						bool noclip = GetEntityMoveType(ent) == MOVETYPE_NOCLIP;
-						
-						if (!noclip)
-						{
-							TR_TraceRayFilter(vecPlayerWSC, vecProjWSC, MASK_SOLID_BRUSHONLY, RayType_EndPoint, TraceFilter_HomingRockets, i);
-						}
-						
-						if (noclip || !TR_DidHit() || TR_GetEntityIndex() == ent)
-						{
-							target_player = i;
-							target_dotproduct = dotproduct;
-						}
-					}
-				}
-				
-				if (target_player != -1)
-				{
-					float vecPlayerWSC[3]; CBaseEntity(target_player).WorldSpaceCenter(vecPlayerWSC);
-					target_vec = vecPlayerWSC;
-					
-					float vecProjWSC[3]; CBaseEntity(ent).WorldSpaceCenter(vecProjWSC);
-					float target_distance = GetVectorDistance(vecProjWSC, vecPlayerWSC);
-					
-					if (g_arrHoming[ent].predict_target_speed)
-					{
-						float vecPlayerAbsVelocity[3]; CBaseEntity(target_player).GetAbsVelocity(vecPlayerAbsVelocity);
-						target_vec[0] += vecPlayerAbsVelocity[0] * target_distance / speed_calculated;
-						target_vec[1] += vecPlayerAbsVelocity[1] * target_distance / speed_calculated;
-						target_vec[2] += vecPlayerAbsVelocity[2] * target_distance / speed_calculated;
-					}
-				}
-			}
+		}
+		else
+		{
+			float target_dotproduct = FLT_MIN;
+			int target_player = -1;
 			
-			if (!Vector_IsZero(target_vec, 0.0))
+			for (int i = 1; i <= MaxClients; i++)
 			{
-				float angToTarget[3];
+				if (!IsClientInGame(i))
+					continue;
+				
+				if (!IsPlayerAlive(i))
+					continue;
+				
+				if (TF2_GetClientTeam(i) == TFTeam_Spectator)
+					continue;
+				
+				if (GetClientTeam(i) == BaseEntity_GetTeamNumber(ent))
+					continue;
+				
+				if (g_arrHoming[ent].ignore_disguised_spies)
+				{
+					if (TF2_IsPlayerInCondition(i, TFCond_Disguised) && TF2_GetDisguiseTeam(i) == view_as<TFTeam>(BaseEntity_GetTeamNumber(ent)))
+					{
+						//Ignore players disguised as our team
+						continue;
+					}
+				}
+				
+				if (g_arrHoming[ent].ignore_stealthed_spies)
+				{
+					if (TF2_IsStealthed(i) && TF2_GetPercentInvisible(i) >= 0.75 && !TF2_IsPlayerInCondition(i, TFCond_CloakFlicker) && !TF2_IsPlayerInCondition(i, TFCond_OnFire) && !TF2_IsPlayerInCondition(i, TFCond_Jarated) && !TF2_IsPlayerInCondition(i, TFCond_Bleeding))
+					{
+						//Ignore stealthed players that are not exposed
+						continue;
+					}
+				}
+				
+				float delta[3];
+				float vecPlayerWSC[3]; CBaseEntity(i).WorldSpaceCenter(vecPlayerWSC);
 				float vecProjWSC[3]; CBaseEntity(ent).WorldSpaceCenter(vecProjWSC);
-				float vecSubtracted[3]; SubtractVectors(target_vec, vecProjWSC, vecSubtracted);
-				GetVectorAngles(vecSubtracted, angToTarget);
+				SubtractVectors(vecPlayerWSC, vecProjWSC, delta);
 				
-				g_arrHoming[ent].homed_in = true;
-				g_arrHoming[ent].homed_in_angle = angToTarget;
+				float mindotproduct = g_arrHoming[ent].min_dot_product;
+				float dotproduct = GetVectorDotProduct(Vector_Normalized(delta), Vector_Normalized(pNewVelocity));
+				
+				if (dotproduct < mindotproduct)
+					continue;
+				
+				if (dotproduct > target_dotproduct)
+				{
+					bool noclip = GetEntityMoveType(ent) == MOVETYPE_NOCLIP;
+					
+					if (!noclip)
+					{
+						TR_TraceRayFilter(vecPlayerWSC, vecProjWSC, MASK_SOLID_BRUSHONLY, RayType_EndPoint, TraceFilter_HomingRockets, i);
+					}
+					
+					if (noclip || !TR_DidHit() || TR_GetEntityIndex() == ent)
+					{
+						target_player = i;
+						target_dotproduct = dotproduct;
+					}
+				}
 			}
-			else
+			if (target_player != -1)
 			{
-				g_arrHoming[ent].homed_in = false;
+				float vecPlayerWSC[3]; CBaseEntity(target_player).WorldSpaceCenter(vecPlayerWSC);
+				target_vec = vecPlayerWSC;
+				
+				float vecProjWSC[3]; CBaseEntity(ent).WorldSpaceCenter(vecProjWSC);
+				float target_distance = GetVectorDistance(vecProjWSC, vecPlayerWSC);
+				
+				if (g_arrHoming[ent].predict_target_speed)
+				{
+					float vecPlayerAbsVelocity[3]; CBaseEntity(target_player).GetAbsVelocity(vecPlayerAbsVelocity);
+					target_vec[0] += vecPlayerAbsVelocity[0] * target_distance / speed_calculated;
+					target_vec[1] += vecPlayerAbsVelocity[1] * target_distance / speed_calculated;
+					target_vec[2] += vecPlayerAbsVelocity[2] * target_distance / speed_calculated;
+				}
 			}
 		}
 		
-		if (g_arrHoming[ent].homed_in)
+		if (!Vector_IsZero(target_vec, 0.0))
 		{
-			float ticksPerSecond = 1.0 / GetGameFrameTime();
-			pNewAngVelocity[0] = (ApproachAngle(g_arrHoming[ent].homed_in_angle[0], pNewAngles[0], g_arrHoming[ent].turn_power * GetGameFrameTime()) - pNewAngles[0]) * ticksPerSecond;
-			pNewAngVelocity[1] = (ApproachAngle(g_arrHoming[ent].homed_in_angle[1], pNewAngles[1], g_arrHoming[ent].turn_power * GetGameFrameTime()) - pNewAngles[1]) * ticksPerSecond;
-			pNewAngVelocity[2] = (ApproachAngle(g_arrHoming[ent].homed_in_angle[2], pNewAngles[2], g_arrHoming[ent].turn_power * GetGameFrameTime()) - pNewAngles[2]) * ticksPerSecond;
-		}
-		
-		if (time < g_arrHoming[ent].aim_time)
-		{
-			pNewAngles[0] += (pNewAngVelocity[0] * GetGameFrameTime());
-			pNewAngles[1] += (pNewAngVelocity[1] * GetGameFrameTime());
-			pNewAngles[2] += (pNewAngVelocity[2] * GetGameFrameTime());
-		}
-		
-		if (g_arrHoming[ent].returning && BaseEntity_GetOwnerEntity(ent) != -1)
-		{
-			int owner = BaseEntity_GetOwnerEntity(ent);
-			
+			float angToTarget[3];
 			float vecProjWSC[3]; CBaseEntity(ent).WorldSpaceCenter(vecProjWSC);
-			float vecOwnerWSC[3]; CBaseEntity(owner).WorldSpaceCenter(vecOwnerWSC);
-			float vecSubtracted[3]; SubtractVectors(vecProjWSC, vecOwnerWSC, vecSubtracted);
-			GetVectorAngles(vecSubtracted, pNewAngles);
+			float vecSubtracted[3]; SubtractVectors(target_vec, vecProjWSC, vecSubtracted);
+			GetVectorAngles(vecSubtracted, angToTarget);
+			
+			g_arrHoming[ent].homed_in = true;
+			g_arrHoming[ent].homed_in_angle = angToTarget;
 		}
-		
-		float vecOrientation[3];
-		GetAngleVectors(pNewAngles, vecOrientation, NULL_VECTOR, NULL_VECTOR);
-		
-		float vec[3] = {0.0, 0.0, -g_arrHoming[ent].gravity * time};
-		pNewVelocity[0] = vecOrientation[0] * speed_calculated + vec[0];
-		pNewVelocity[1] = vecOrientation[1] * speed_calculated + vec[1];
-		pNewVelocity[2] = vecOrientation[2] * speed_calculated + vec[2];
-		
-		pNewPosition[0] += (pNewVelocity[0] * GetGameFrameTime());
-		pNewPosition[1] += (pNewVelocity[1] * GetGameFrameTime());
-		pNewPosition[2] += (pNewVelocity[2] * GetGameFrameTime());
-		
-		return true;
+		else
+		{
+			g_arrHoming[ent].homed_in = false;
+		}
 	}
+	if (g_arrHoming[ent].homed_in)
+	{
+		float ticksPerSecond = 1.0 / GetGameFrameTime();
+		pNewAngVelocity[0] = (ApproachAngle(g_arrHoming[ent].homed_in_angle[0], pNewAngles[0], g_arrHoming[ent].turn_power * GetGameFrameTime()) - pNewAngles[0]) * ticksPerSecond;
+		pNewAngVelocity[1] = (ApproachAngle(g_arrHoming[ent].homed_in_angle[1], pNewAngles[1], g_arrHoming[ent].turn_power * GetGameFrameTime()) - pNewAngles[1]) * ticksPerSecond;
+		pNewAngVelocity[2] = (ApproachAngle(g_arrHoming[ent].homed_in_angle[2], pNewAngles[2], g_arrHoming[ent].turn_power * GetGameFrameTime()) - pNewAngles[2]) * ticksPerSecond;
+	}
+	if (time < g_arrHoming[ent].aim_time)
+	{
+		pNewAngles[0] += (pNewAngVelocity[0] * GetGameFrameTime());
+		pNewAngles[1] += (pNewAngVelocity[1] * GetGameFrameTime());
+		pNewAngles[2] += (pNewAngVelocity[2] * GetGameFrameTime());
+	}
+	if (g_arrHoming[ent].returning && BaseEntity_GetOwnerEntity(ent) != -1)
+	{
+		int owner = BaseEntity_GetOwnerEntity(ent);
+		
+		float vecProjWSC[3]; CBaseEntity(ent).WorldSpaceCenter(vecProjWSC);
+		float vecOwnerWSC[3]; CBaseEntity(owner).WorldSpaceCenter(vecOwnerWSC);
+		float vecSubtracted[3]; SubtractVectors(vecProjWSC, vecOwnerWSC, vecSubtracted);
+		GetVectorAngles(vecSubtracted, pNewAngles);
+	}
+	
+	float vecOrientation[3];
+	GetAngleVectors(pNewAngles, vecOrientation, NULL_VECTOR, NULL_VECTOR);
+	
+	float vec[3];
+	vec[0] = 0.0;
+	vec[1] = 0.0;
+	vec[2] = -g_arrHoming[ent].gravity * time;
+	pNewVelocity[0] = vecOrientation[0] * speed_calculated + vec[0];
+	pNewVelocity[1] = vecOrientation[1] * speed_calculated + vec[1];
+	pNewVelocity[2] = vecOrientation[2] * speed_calculated + vec[2];
+	
+	pNewPosition[0] += (pNewVelocity[0] * GetGameFrameTime());
+	pNewPosition[1] += (pNewVelocity[1] * GetGameFrameTime());
+	pNewPosition[2] += (pNewVelocity[2] * GetGameFrameTime());
+	
+	return true;
 }
 
 static bool TraceFilter_HomingRocketsFollowCrosshair(int entity, int contentsMask, StringMap data)

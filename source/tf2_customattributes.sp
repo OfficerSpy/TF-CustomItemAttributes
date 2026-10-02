@@ -1,13 +1,17 @@
 #include <sourcemod>
 #include <sdkhooks>
 #include <dhooks>
+#include <tf2_stocks>
 #include <tf2attributes>
+#include <tf2utils>
+#include <cbasenpc>
 
 #pragma semicolon 1
 #pragma newdecls required
 
 static bool m_bLateLoad;
 
+#include "customattributes/util.sp"
 #include "customattributes/dhooks.sp"
 #include "customattributes/sdkcalls.sp"
 #include "customattributes/etc/heatseekingrockets.sp"
@@ -35,6 +39,9 @@ public void OnPluginStart()
 		if (!InitDHooks(hGamedata))
 			bFailed = true;
 		
+		if (!InitSDKCalls(hGamedata))
+			bFailed = true;
+		
 		hGamedata.Close();
 		
 		if (bFailed)
@@ -44,7 +51,10 @@ public void OnPluginStart()
 	{
 		ThrowError("Failed to load gamedata file \"tf2.customattributes.txt\"!");
 	}
-	
+}
+
+public void OnConfigsExecuted()
+{
 	//Unload inferior versions
 	ServerCommand("sm plugins unload tf_itemschema_attributes");
 }
@@ -83,6 +93,7 @@ void OnProjectileFired(int weapon, int player, int proj)
 		//TODO: we disabled particle colors in the functions used, be sure to enable them when we add in color support from weapons!
 		float color0[3];
 		float color1[3];
+		te_tf_particle_effects_control_point_t arrEmpty;
 		if (StrContains(particlename, "~", false) != -1)
 		{
 			//Trim this off, it was only here to tell us the user wants to stop all particles first

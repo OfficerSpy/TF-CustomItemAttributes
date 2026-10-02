@@ -1,0 +1,53 @@
+"Games"
+{
+	"tf"
+	{
+		"Offsets"
+		{
+			"CTFWeaponBaseGun::GetWeaponProjectileType"
+			{		
+				"windows"	"472"
+				"linux"		"479"
+			}
+			"CTFWeaponBaseGun::GetProjectileSpeed"
+			{		
+				"windows"	"484"
+				"linux"		"491"
+			}
+			"CBaseEntity::PerformCustomPhysics"
+			{
+				"windows"	"176"
+				"linux"		"177"
+			}
+		}
+		"Functions"
+		{
+			"CBaseEntity::PerformCustomPhysics"
+			{
+				"offset"	"CBaseEntity::PerformCustomPhysics"
+				"hooktype"	"entity"
+				"return"	"void"
+				"this"		"entity"
+				"arguments"
+				{
+					"pNewPosition"
+					{
+						"type"	"vectorptr"
+					}
+					"pNewVelocity"
+					{
+						"type"	"vectorptr"
+					}
+					"pNewAngles"
+					{
+						"type"	"vectorptr"
+					}
+					"pNewAngVelocity"
+					{
+						"type"	"vectorptr"
+					}
+				}
+			}
+		}
+	}
+}
